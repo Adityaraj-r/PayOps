@@ -1,0 +1,45 @@
+# PayOps | Author: differentiatorX <madhur.m2006@gmail.com>
+# Render Blueprint: PayOps API with in-process workers + Redis-compatible Key Value, both on free plans.
+# Existing onyx-api and onyx-redis resource names are retained to avoid replacing deployed services.
+# Render dashboard: New, Blueprint, pick the PayOps repo. Then fill the three "sync: false" values.
+services:
+  - type: web
+    name: onyx-api
+    runtime: node
+    rootDir: server
+    plan: free
+    buildCommand: npm ci --omit=dev
+    startCommand: node src/server.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: RUN_WORKERS_IN_API
+        value: "true"
+      - key: ENABLE_DEV_ROUTES
+        value: "false"
+      - key: PAYMENT_PROVIDER
+        value: mockbank
+      - key: JWT_SECRET
+        generateValue: true
+      - key: MOCKBANK_WEBHOOK_SECRET
+        generateValue: true
+      - key: WEBHOOK_SECRET_ENCRYPTION_KEY
+        sync: false
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: onyx-redis
+          property: connectionString
+      - key: MONGO_URI
+        sync: false # MongoDB Atlas connection string, ending in /onyx?retryWrites=true&w=majority
+      - key: CLIENT_URL
+        sync: false # your Vercel URL; keep the currently deployed value until Vercel is renamed
+      - key: INTERNAL_API_URL
+        sync: false # this service's own URL, e.g. https://onyx-api.onrender.com
+
+  - type: keyvalue
+    name: onyx-redis
+    plan: free
+    maxmemoryPolicy: noeviction # BullMQ must never have its keys evicted
+    ipAllowList: [] # reachable only from your Render services

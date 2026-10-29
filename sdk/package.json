@@ -1,0 +1,19 @@
+{
+  "name": "@payops/node",
+  "version": "0.1.0",
+  "description": "Tiny Node.js client for the PayOps API: payments, refunds and webhook verification",
+  "author": "differentiatorX <madhur.m2006@gmail.com> (https://github.com/differentiatorX)",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Adityaraj-r/PayOps.git"
+  },
+  "homepage": "https://github.com/Adityaraj-r/PayOps#readme",
+  "bugs": {
+    "url": "https://github.com/Adityaraj-r/PayOps/issues"
+  },
+  "main": "index.js",
+  "engines": {
+    "node": ">=18"
+  }
+}
