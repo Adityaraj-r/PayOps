@@ -282,7 +282,7 @@ cd ../client && npm install && npm run dev    # dashboard on :5173
 
 ### Deploy a live demo
 
-Everything runs on free tiers: MongoDB Atlas, Render (API, workers and Redis via `render.yaml`) and Vercel (dashboard). Step by step in [`docs/DEPLOY.md`](docs/DEPLOY.md).
+The included free-tier stack is a demo topology: Render free services can sleep/restart and free Key Value does not persist BullMQ queue state. See the [deployment guide](docs/DEPLOY.md) before using any paid or production resources.
 
 ### Razorpay test mode
 

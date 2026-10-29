@@ -1,51 +1,156 @@
-# Deploying a live PayOps demo for free
+# PayOps deployment guide
 
-*PayOps by [differentiatorX](https://github.com/differentiatorX)*
+This guide describes the repository as configured today. It does not claim that a live Render, Vercel, Atlas, or payment-provider account has been verified.
 
-| Piece | Host | Plan |
-|:--|:--|:--|
-| Database | MongoDB Atlas | M0 free (supports transactions) |
-| API and workers | Render web service | Free |
-| Redis | Render Key Value | Free |
-| Dashboard and checkout | Vercel | Hobby |
-| Landing page | GitHub Pages | Free |
+## Architecture and deployment limits
 
-## 1. MongoDB Atlas
-1. Create a free M0 cluster.
-2. Database Access: add a user with a strong password.
-3. Network Access: allow `0.0.0.0/0` (Render's free IPs change).
-4. Connect, Drivers: copy the URI and put `/onyx` before the `?`. The database keeps this legacy name to preserve existing data, for example
-   `mongodb+srv://user:pass@cluster0.xxxx.mongodb.net/onyx?retryWrites=true&w=majority`
+| Component | Location | Responsibility |
+| --- | --- | --- |
+| Dashboard and checkout | Vercel, project root `client/` | React/Vite single-page app; rewrites `/api/*` and `/v1/*` to the Render API |
+| API | Render Web Service, root `server/` | Express routes, authentication, payment and refund APIs, health endpoints |
+| Worker | Same Render Web Service in the current free blueprint | BullMQ queues, provider-event processing, refunds, outbound webhooks, settlements and reconciliation |
+| Database | MongoDB Atlas | Durable payment, merchant, refund, ledger and event records; transactions require a replica set |
+| Queue/cache | Render Key Value | Redis-compatible BullMQ queues and rate-limit state |
 
-## 2. Render (API, workers, Redis)
-1. Render dashboard: New, Blueprint, select the PayOps repository. It reads `render.yaml`.
-2. Fill the required blank values:
-   - `MONGO_URI`: the Atlas URI from step 1
-   - `INTERNAL_API_URL`: the current Render service URL, e.g. `https://onyx-api.onrender.com` (the deployed service still uses its legacy resource name)
-   - `CLIENT_URL`: your Vercel URL from step 3 (come back and set it after Vercel deploys)
-   - `WEBHOOK_SECRET_ENCRYPTION_KEY`: generate at least 32 random bytes and store the base64url value in Render. Do not reuse it across environments.
-   - Optionally set `PLATFORM_ADMIN_EMAILS` to the comma-separated emails of registered operator accounts.
-   - `PLATFORM_ADMIN_EMAILS`: optional comma-separated allowlist of registered account emails permitted to trigger a platform-wide reconciliation run. Ordinary merchants can view only their own report data.
-3. Deploy. Check `https://<your-api>.onrender.com/health` returns `"ok": true`.
+The current `render.yaml` deliberately retains the existing resource names `onyx-api` and `onyx-redis`, preserves the MongoDB database name `onyx`, and sets `RUN_WORKERS_IN_API=true`. Do not rename the resources or database as part of deployment without a migration plan.
 
-Workers run inside the API process (`RUN_WORKERS_IN_API=true`) because separate background workers are not free on Render.
+**The configured free Render topology is for a demo, not reliable payment production.** Free web services can sleep and restart; free Key Value is in-memory and loses its contents on restart. Since Redis stores BullMQ job state, queue work can be lost. The repository keeps this topology because it is the selected demo setup. Use a continuously running paid service and persistent Key Value before accepting real traffic. Render documents these free-tier limitations in its [free services guide](https://render.com/docs/free).
 
-## 3. Vercel (dashboard)
-1. Import the repo. Set **Root Directory** to `client`. Framework preset: Vite.
-2. `client/vercel.json` currently points to the existing `onyx-api` Render service. Update it if you rename that external Render service.
-3. Deploy, then copy the Vercel URL into Render's `CLIENT_URL` and redeploy the API.
+Settlements are simulated ledger entries; they do not transfer money. `mockbank` is a simulator. Use provider sandbox credentials for integration checks; never use real customer funds for smoke tests.
 
-## 4. Seed demo data
-From your machine:
+## Baseline commands from a clean checkout
+
 ```bash
-cd server && npm install
-API_URL=https://onyx-api.onrender.com npm run seed
+git clone https://github.com/Adityaraj-r/PayOps.git
+cd PayOps
+docker compose config --quiet
+docker compose up --build -d
 ```
-Recruiters can now sign in with `demo@onyx.dev` / `onyx-demo-123`, or create their own test account.
 
-## 5. Link it
-Add the Vercel URL to the README header and to the landing page buttons in `docs/index.html`.
+The local dashboard is `http://localhost:5173`; the API is `http://localhost:4000`. Check liveness and readiness:
 
-## Free-tier behaviour to know
-- Render free services sleep after 15 idle minutes. The first request takes about a minute to wake it; scheduled jobs pause while it sleeps. Open the API once before an interview.
-- Webhooks to the built-in test receiver fail 30% of the time on purpose, so the retries show up in the dashboard.
+```bash
+curl --fail http://localhost:4000/health/live
+curl --fail http://localhost:4000/health/ready
+```
+
+For PowerShell, use `Invoke-RestMethod http://localhost:4000/health/live` and `Invoke-RestMethod http://localhost:4000/health/ready`. Readiness requires both MongoDB and Redis. Stop the local stack with `docker compose down`; this preserves the named MongoDB volume. Do not add `-v` unless you intend to delete local database data.
+
+To run checks without Docker, first provide a MongoDB replica-set URI and Redis URL in an untracked `server/.env`, then run `npm ci` and `npm test -- --runInBand` in `server/`, and `npm ci` and `npm run build` in `client/`. The full lifecycle integration test additionally requires `PAYOPS_INTEGRATION=1`, a disposable MongoDB replica set, and disposable Redis; never point it at production.
+
+## Render setup
+
+1. Create or update the Blueprint from the PayOps repository using `render.yaml`. It declares one Node Web Service and one Key Value service. The API uses `rootDir: server`, `npm ci --omit=dev`, `node src/server.js`, and `/health` as its compatibility health check.
+2. Keep the existing `onyx-api` and `onyx-redis` resources if they contain the current deployment. Confirm their region and service names in the Render dashboard; the repository cannot verify your account state.
+3. Fill the four `sync: false` API values: `MONGO_URI`, `WEBHOOK_SECRET_ENCRYPTION_KEY`, `CLIENT_URL`, and `INTERNAL_API_URL`. `JWT_SECRET` and `MOCKBANK_WEBHOOK_SECRET` are generated by the Blueprint; `REDIS_URL` is connected from the declared Key Value service.
+4. Use the existing Atlas database path `/onyx` in `MONGO_URI` to preserve the current data. Confirm that the Atlas deployment supports replica-set transactions. In Atlas Network Access, allow the Render service’s outbound IP ranges shown in Render’s service dashboard. Avoid the broad `0.0.0.0/0` rule when a narrower allowlist is available. Render documents this connection flow in its [MongoDB Atlas guide](https://render.com/docs/connect-to-mongodb-atlas).
+5. Set `CLIENT_URL` to the exact HTTPS origin of the Vercel deployment, without a path or trailing slash. CORS permits this one origin; Vercel preview deployments on other origins need an explicit corresponding backend setting.
+6. Set `INTERNAL_API_URL` to the HTTPS origin reachable by the mock-bank worker. Keep `/dev` disabled in production (`ENABLE_DEV_ROUTES=false`).
+7. If using Razorpay, set `PAYMENT_PROVIDER=razorpay` and the three Razorpay values listed below. Configure the provider webhook URL as `https://<render-api-host>/webhooks/razorpay` and use the same webhook signing secret in Render. Start with Razorpay test credentials.
+8. Optionally set `PLATFORM_ADMIN_EMAILS` to a comma-separated allowlist of registered operator account emails. Without it, manual platform-wide reconciliation and refund operations are unavailable to dashboard accounts; scheduled reconciliation continues to run.
+
+### Render runtime environment inventory
+
+“Secret” means the value belongs in Render’s secret environment settings. Values in `.env.example` are development placeholders/defaults, never production credentials.
+
+| Variable | Service | Required in production | Secret? | Format / default / validation |
+| --- | --- | --- | --- | --- |
+| `NODE_ENV` | API and worker | Yes | No | Set to `production`; schema default is `development` |
+| `PORT` | API | Supplied by Render | No | Integer port; local default `4000` |
+| `LOG_LEVEL` | API and worker | No | No | Pino level; default `info` |
+| `SERVICE_NAME` | Either process | No | No | Log label; API defaults to `payops-api`, worker to `payops-worker` |
+| `MONGO_URI` | API, worker, migration | Yes | Yes | `mongodb://` or `mongodb+srv://`; production rejects localhost; preserve `/onyx` |
+| `REDIS_URL` | API and worker | Yes | Yes | `redis://` or `rediss://`; production rejects localhost; Render supplies it from Key Value |
+| `JWT_SECRET` | API | Yes | Yes | At least 32 characters and 16 distinct characters; generate in Render |
+| `JWT_TTL` | API | No | No | JWT expiry; default `12h` |
+| `WEBHOOK_SECRET_ENCRYPTION_KEY` | API, worker, migration | Yes | Yes | Base64url encoding of at least 32 random bytes; back it up securely |
+| `PLATFORM_ADMIN_EMAILS` | API | No | No | Comma-separated registered emails; empty by default |
+| `CLIENT_URL` | API | Yes | No | HTTPS dashboard origin only; default is local Vite origin |
+| `INTERNAL_API_URL` | API and worker | Yes for this blueprint | No | Reachable API origin; used for simulator callbacks; local default is `http://localhost:4000` |
+| `PAYMENT_PROVIDER` | API and worker | Yes | No | `mockbank` (default simulator) or `razorpay` |
+| `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` | API and worker | If Razorpay selected | Yes | All three required when `PAYMENT_PROVIDER=razorpay` |
+| `MOCKBANK_WEBHOOK_SECRET` | API and worker | If mockbank selected | Yes | At least 32 characters in production; development default is unsafe for production |
+| `MOCKBANK_FAILURE_RATE`, `MOCKBANK_TIMEOUT_RATE`, `MOCKBANK_DUPLICATE_RATE`, `MOCKBANK_REORDER_RATE`, `MOCKBANK_REFUND_FAILURE_RATE` | Simulator | No | No | Numbers from `0` to `1`; demo defaults are in `server/.env.example` |
+| `PLATFORM_FEE_BPS` | API | No | No | Integer basis points, `0–1000`; default `200` |
+| `PAYMENT_EXPIRY_MINUTES`, `STUCK_PAYMENT_SECONDS`, `SETTLEMENT_DELAY_MINUTES` | API/worker | No | No | Positive timing settings; defaults in `server/src/config/env.js` |
+| `SETTLEMENT_INTERVAL_SECONDS`, `RECONCILIATION_INTERVAL_SECONDS` | Worker | No | No | Positive schedule intervals; defaults `300` and `3600` seconds |
+| `IDEMPOTENCY_TTL_HOURS` | API | No | No | Positive hours; default `24` |
+| `RATE_LIMIT_CAPACITY`, `RATE_LIMIT_REFILL_PER_SEC` | API | No | No | Positive rate-limit settings; defaults `100` and `20` |
+| `WEBHOOK_MAX_ATTEMPTS`, `WEBHOOK_TIMEOUT_MS` | Worker | No | No | Positive retry/timeout settings; defaults `8` and `10000` ms |
+| `OPS_QUEUE_WARN_AGE_SECONDS`, `OPS_RECONCILIATION_STALE_SECONDS` | Worker | No | No | Positive alert thresholds; defaults `300` and `7200` seconds |
+| `ENABLE_DEV_ROUTES` | API | Yes | No | Must be `false` in production; local default `true` |
+| `RUN_WORKERS_IN_API` | API | Yes for current Blueprint | No | `true` in this single-service demo topology |
+
+The frontend has **no required Vercel environment variables**: dashboard requests use relative `/api` routes, and the Vercel config proxies them. `VITE_PROXY_TARGET` is only for local Vite development and defaults to `http://localhost:4000`; it is not a production API URL. The seed script also recognizes `API_URL`, `SEED_EMAIL`, `SEED_PASSWORD`, and `SEED_PAYMENTS`; those are one-off script inputs, not API runtime settings. CI uses `PAYOPS_INTEGRATION=1` only with disposable test services.
+
+SMTP, email notification, and metrics exporter settings are not implemented or required by this repository.
+
+## Vercel setup
+
+1. Import `Adityaraj-r/PayOps` and set **Root Directory** to `client/`.
+2. Use the Vite framework preset. Install command: `npm ci`; build command: `npm run build`; output directory: `dist`.
+3. `client/vercel.json` proxies `/api/*` and `/v1/*` to the Render service and sends other routes to `index.html` for SPA deep links. **Update both API destination hostnames** to the public API hostname shown in the Render dashboard if the existing `onyx-api-832o.onrender.com` resource differs. No hostname is invented in this guide.
+4. Set Render `CLIENT_URL` to the Vercel production origin and redeploy the API.
+5. Vercel Preview URLs have different origins. Since the API uses an exact `CLIENT_URL` CORS origin, preview auth/API checks may fail until you set an allowed preview origin or test on the production domain.
+
+The Developers page’s generated `/v1` examples use the current site origin. Vercel routes those paths to the API; the local Vite config proxies `/v1` to the local API.
+
+## Webhook secret migration and rollback
+
+Set and back up `WEBHOOK_SECRET_ENCRYPTION_KEY` before migrating stored endpoint secrets. The application can read legacy plaintext records during rollout; new endpoint secrets are encrypted and shown once. Use a trusted environment with the deployment’s `MONGO_URI` and encryption key already supplied securely, then from `server/` run:
+
+```bash
+npm ci
+npm run encrypt:webhook-secrets
+npm run encrypt:webhook-secrets -- --apply
+```
+
+The first command reports only the number of records; the apply command does not print secret values. Do not put actual values in shell history, this document, `.env.example`, or logs. The API migration script requires network access to the production database, so run it only from a secured machine/network approved for that database.
+
+The previous webhook secret is accepted during a 24-hour overlap; endpoint consumers should support `payops-signature-previous` during that window. After encrypting records, do not roll back to a code version that expects plaintext secrets. Roll forward to a compatible release, or restore a pre-migration database backup together with the matching application version. Retain the encryption key; losing it prevents the current application from signing webhook deliveries.
+
+## Verification and smoke test
+
+### Local CI-equivalent checks
+
+```bash
+cd server
+npm ci
+npm audit --audit-level=moderate
+npm test -- --runInBand
+cd ../client
+npm ci
+npm audit --audit-level=moderate
+npm run build
+cd ..
+docker compose config --quiet
+docker compose build
+```
+
+The local lifecycle integration test is skipped unless `PAYOPS_INTEGRATION=1` and disposable replica-set MongoDB/Redis are configured. CI provisions these services and fails if that test is inadvertently disabled. Never set the integration URI to a production database.
+
+### After deploying to a test environment
+
+1. GET `https://<api-host>/health/live` for process liveness and `/health/ready` for MongoDB/Redis readiness. `/health` remains a compatibility readiness alias.
+2. Load the HTTPS Vercel homepage, sign in with a test account, and inspect browser network failures for CORS, 401, or 5xx responses.
+3. Verify `/v1/payments` through the Vercel origin returns the API’s authentication response (not the SPA HTML). Do not use a real API key in screenshots or logs.
+4. Create one test payment with `mockbank`; verify captured status, balanced ledger, webhook delivery, and idempotent repeat behavior.
+5. In an isolated test database, verify refund completion/recovery and ensure ordinary merchant accounts receive 403 from platform reconciliation and refund-operator routes.
+6. Confirm `/dev/*` is unavailable in production. Verify Razorpay callbacks only with test credentials and test-mode webhooks.
+
+These smoke steps are not evidence that production services, backups, secrets, or live payment-provider accounts have been tested.
+
+## Operations and troubleshooting
+
+- `/health/ready` returns 503 with `mongo` or `redis` false: verify the Render `MONGO_URI`, replica-set support, Key Value `REDIS_URL`, region/network access, and service state. Never paste credentials in issue reports.
+- 401 from dashboard: verify the frontend origin and authentication token; a changed `JWT_SECRET` invalidates existing sessions.
+- Browser CORS errors: `CLIENT_URL` must exactly match the Vercel origin, with HTTPS and no path.
+- Simulator callbacks fail: verify `INTERNAL_API_URL` is reachable from the API process and `MOCKBANK_WEBHOOK_SECRET` is set.
+- Razorpay credentials or signature failures: verify the selected mode, key pair, callback URL, raw-body webhook handling, and matching secret.
+- Queue delay or refund requiring review: inspect Render logs for `Operational alert:` and use the audited refund operator flow in `docs/OPERATIONS.md`.
+- MongoDB backups and restoration are account-level operations. Perform a restore drill into an isolated database before storing real customer/payment data.
+- Free Render services sleep, restart, and free Key Value does not persist queue state. Do not use that topology for real transactions.
+
+## Deployment rollback
+
+For a code-only failure before webhook secret migration, redeploy the previous known-good Render and Vercel revisions and verify health again. After the webhook migration, use only application code compatible with encrypted secrets; an old build that assumes plaintext is not a safe rollback. Before database or index changes, take and verify a backup and document the restore target. The application does not run destructive database migrations automatically; do not drop, reset, or reseed production data during rollback.

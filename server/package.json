@@ -21,6 +21,7 @@
     "start:worker": "node src/worker.js",
     "seed": "node scripts/seed.js",
     "encrypt:webhook-secrets": "node scripts/encryptWebhookSecrets.js",
+    "check:deploy-config": "node scripts/validateDeployConfig.js",
     "test": "jest"
   },
   "engines": {
@@ -42,6 +43,7 @@
   },
   "devDependencies": {
     "jest": "^29.7.0",
+    "js-yaml": "^4.3.2",
     "nodemon": "^3.1.7"
   },
   "jest": {

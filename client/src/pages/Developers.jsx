@@ -5,7 +5,7 @@ import { useResource } from '../hooks.js';
 import { timeAgo } from '../format.js';
 import { CopyText, ErrorNote, Modal } from '../components/ui.jsx';
 
-const API_BASE = 'http://localhost:4000';
+const API_BASE = window.location.origin;
 
 const createSnippet = (key) => `curl ${API_BASE}/v1/payments \\
   -H "Authorization: Bearer ${key}" \\

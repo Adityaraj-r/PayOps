@@ -1,5 +1,9 @@
 const enabled = process.env.PAYOPS_INTEGRATION === '1';
 
+if (process.env.CI === 'true' && !enabled) {
+  throw new Error('CI must set PAYOPS_INTEGRATION=1; do not silently skip payment lifecycle integration tests');
+}
+
 (enabled ? describe : describe.skip)('payment lifecycle integration (MongoDB replica set + Redis)', () => {
   let merchant;
   let payment;

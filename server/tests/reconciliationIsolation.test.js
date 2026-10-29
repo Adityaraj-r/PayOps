@@ -1,5 +1,9 @@
 process.env.PLATFORM_ADMIN_EMAILS = 'operator@payops.test';
 
+jest.mock('../src/config/redis', () => ({
+  getRedis: () => ({ eval: jest.fn().mockResolvedValue([1, '299']) }),
+}));
+
 const jwt = require('jsonwebtoken');
 const { ReconciliationReport, Merchant } = require('../src/models');
 const env = require('../src/config/env');

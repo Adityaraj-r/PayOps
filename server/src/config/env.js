@@ -1,10 +1,23 @@
 // PayOps | Author: differentiatorX <madhur.m2006@gmail.com> | https://github.com/differentiatorX | MIT License
 require('dotenv').config();
 const { z } = require('zod');
+const { isIP } = require('node:net');
 
 const bool = z
   .union([z.boolean(), z.string()])
   .transform((v) => v === true || v === 'true' || v === '1');
+
+function parsedUrl(value) {
+  try { return new URL(value); } catch { return null; }
+}
+
+function isLoopback(hostname = '') {
+  const host = hostname.toLowerCase().replace(/^\[|\]$/g, '');
+  if (host === 'localhost' || host.endsWith('.localhost')) return true;
+  if (isIP(host) === 4) return Number(host.split('.')[0]) === 127 || host === '0.0.0.0';
+  if (isIP(host) === 6) return host === '::1' || host === '::' || host.startsWith('::ffff:127.');
+  return false;
+}
 
 const schema = z
   .object({
@@ -67,6 +80,31 @@ const schema = z
       const secret = process.env.MOCKBANK_WEBHOOK_SECRET;
       if (!secret || secret === 'mockbank_dev_secret' || secret.length < 32) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['MOCKBANK_WEBHOOK_SECRET'], message: 'Set a unique MOCKBANK_WEBHOOK_SECRET of at least 32 characters in production' });
+      }
+    }
+    if (env.NODE_ENV === 'production') {
+      const mongo = parsedUrl(env.MONGO_URI);
+      if (!mongo || !['mongodb:', 'mongodb+srv:'].includes(mongo.protocol) || !mongo.hostname || isLoopback(mongo.hostname)) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['MONGO_URI'], message: 'Set MONGO_URI to a reachable MongoDB replica-set URI; localhost is not valid in production' });
+      }
+
+      const redis = parsedUrl(env.REDIS_URL);
+      if (!redis || !['redis:', 'rediss:'].includes(redis.protocol) || !redis.hostname || isLoopback(redis.hostname)) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['REDIS_URL'], message: 'Set REDIS_URL to a reachable redis:// or rediss:// endpoint; localhost is not valid in production' });
+      }
+
+      const client = parsedUrl(env.CLIENT_URL);
+      if (!client || client.protocol !== 'https:' || !client.hostname || isLoopback(client.hostname) || client.pathname !== '/' || client.search || client.hash || client.username || client.password) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['CLIENT_URL'], message: 'Set CLIENT_URL to the HTTPS origin of the deployed dashboard, without a path, query, or credentials' });
+      }
+
+      const internalApi = parsedUrl(env.INTERNAL_API_URL);
+      if (!internalApi || !['http:', 'https:'].includes(internalApi.protocol) || !internalApi.hostname || isLoopback(internalApi.hostname) || internalApi.pathname !== '/' || internalApi.search || internalApi.hash || internalApi.username || internalApi.password) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['INTERNAL_API_URL'], message: 'Set INTERNAL_API_URL to the API origin reachable by the provider worker, without a path, query, or credentials' });
+      }
+
+      if (env.PORT < 1 || env.PORT > 65535) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['PORT'], message: 'PORT must be between 1 and 65535' });
       }
     }
   });

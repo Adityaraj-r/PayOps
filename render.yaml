@@ -1,7 +1,7 @@
 # PayOps | Author: differentiatorX <madhur.m2006@gmail.com>
 # Render Blueprint: PayOps API with in-process workers + Redis-compatible Key Value, both on free plans.
 # Existing onyx-api and onyx-redis resource names are retained to avoid replacing deployed services.
-# Render dashboard: New, Blueprint, pick the PayOps repo. Then fill the three "sync: false" values.
+# Render dashboard: New, Blueprint, pick the PayOps repo. Then fill the four "sync: false" values.
 services:
   - type: web
     name: onyx-api
