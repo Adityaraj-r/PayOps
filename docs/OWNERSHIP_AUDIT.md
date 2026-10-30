@@ -25,3 +25,7 @@ The README acknowledges `anirbanshit29/payment-reliability-engine` and `MOHITU77
 ## Implementation attribution
 
 This implementation preserved existing author headers, package author fields, README acknowledgements, and provenance context. Changes are still local and uncommitted, so Git has not yet recorded an author for them. Attribute them to an individual only after review and commit under the correct configured identity.
+
+## Stage 4 evidence
+
+Stage 4 local changes are uncommitted and therefore have no Git commit attribution. The Stage 3 parent commit is `d79fd1762830686b3e62518e8662c031784726bd`; this audit does not treat that commit's author metadata as evidence that all inherited code was independently authored. No source attribution headers, acknowledgements, or contribution records were changed in Stage 4.

@@ -1,5 +1,5 @@
 // PayOps | Author: differentiatorX <madhur.m2006@gmail.com> | https://github.com/differentiatorX | MIT License
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { checkoutApi } from '../api.js';
 import { money } from '../format.js';
@@ -42,7 +42,7 @@ export default function Checkout() {
   const pollStarted = useRef(0);
 
   // Keep the lazy state initializer pure under React StrictMode; remove capabilities after mount.
-  useEffect(() => {
+  useLayoutEffect(() => {
     const url = new URL(window.location.href);
     if (!url.searchParams.has('secret') && !url.hash) return;
     url.searchParams.delete('secret');

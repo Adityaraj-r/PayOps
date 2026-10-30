@@ -65,8 +65,12 @@ async function main() {
   for (const p of created) {
     if (!p.checkout_url || Math.random() < 0.15) continue; // some customers abandon checkout
     const url = new URL(p.checkout_url);
-    const secret = url.searchParams.get('secret');
-    await call('POST', `/api/checkout/${p.id}/confirm?secret=${encodeURIComponent(secret)}`, { body: { method: 'card', simulate: 'auto' } });
+    const secret = new URLSearchParams(url.hash.slice(1)).get('secret');
+    if (!secret) throw new Error(`Checkout URL for payment ${p.id} is missing its capability`);
+    await call('POST', `/api/checkout/${p.id}/confirm`, {
+      body: { method: 'card', simulate: 'auto' },
+      headers: { authorization: `Checkout ${secret}` },
+    });
   }
   console.log(`Created ${created.length} payments; waiting for the mock bank...`);
   await sleep(8000);

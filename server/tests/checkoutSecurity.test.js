@@ -2,6 +2,8 @@ const pino = require('pino');
 const requestLogSerializer = require('../src/config/requestLogSerializer');
 const logRedactions = require('../src/config/logRedactions');
 const serialize = require('../src/lib/serialize');
+const fs = require('node:fs');
+const path = require('node:path');
 
 describe('checkout capability handling', () => {
   test('generated checkout links keep capability in the URL fragment', () => {
@@ -28,5 +30,13 @@ describe('checkout capability handling', () => {
     expect(output).not.toContain('synthetic-api-key');
     expect(output).not.toContain('synthetic-cookie');
     expect(output).toContain('/api/checkout/pay_test');
+  });
+
+  test('demo seed consumes fragment capabilities through Authorization without query fallback', () => {
+    const seed = fs.readFileSync(path.join(__dirname, '../scripts/seed.js'), 'utf8');
+    expect(seed).toContain("new URLSearchParams(url.hash.slice(1)).get('secret')");
+    expect(seed).toContain('authorization: `Checkout ${secret}`');
+    expect(seed).not.toMatch(/url\.searchParams\.get\(['"]secret['"]\)/);
+    expect(seed).not.toMatch(/confirm\?secret=/);
   });
 });

@@ -1,7 +1,7 @@
 # PayOps Security and Reliability Audit
 
 **Audit date:** 2026-10-30
-**Scope:** static code/configuration review and Stage 3 changes. No live credentials or production traffic were used. This is not a penetration test.
+**Scope:** static code/configuration review and Stage 3/Stage 4 changes. No live credentials or production traffic were used. This is not a penetration test.
 
 ## Controls observed
 
@@ -18,6 +18,7 @@
 **Previous issue:** generated checkout URLs and frontend API requests put the secret in query values, which URL logging can retain.
 **Change:** new links put the capability in a URL fragment; browser code reads it, removes it from the visible URL, and sends it in an `Authorization: Checkout ...` header. The browser accepts already-issued `?secret=...` checkout page links and migrates the credential before API calls. The backend prefers header auth but retains query fallback for direct clients during migration. App logs redact authorization and omit query strings; Nginx access logs use `$uri`, not `$request`, and omit Referer. Existing query links initially reach the dashboard host with the secret, so external CDN/host logs may already contain legacy tokens.
 **Expiry/replay:** expiry is enforced for reads and confirmation. Existing payment-state transitions make repeated confirmation of a non-created payment idempotent. Tokens remain reusable until expiry and the Payment record still stores them in plaintext; token hashing/rotation remains future work.
+**Stage 4:** the internal demo seed now reads the fragment and sends the capability in an Authorization header. Checkout removes query/fragment capability in a layout effect before paint, and the static HTML sets `Referrer-Policy: no-referrer`. Browser history replacement cannot prevent the initial request for an already-issued query link from reaching the hosting edge with its query; CDN/host logging configuration must also be reviewed. The backend query fallback remains during the compatibility period because external direct clients have not been inventoried.
 **Residual proxy risk:** Nginx's built-in error log includes the original request target in upstream connection errors. A failed-upstream smoke check exposed a synthetic query marker in that error log even though the access log omitted it. Current generated links do not send capabilities in API queries, and the old browser page link is read/migrated before API calls; direct legacy API clients using query fallback may still expose the value in proxy error logs if the upstream fails. Remove query fallback after those clients migrate, and do not use it in new integrations.
 
 ### High — pending webhook delivery recovery — implemented
@@ -36,7 +37,7 @@ The root `SECURITY_AUDIT.md` contains obsolete dependency/test details. This doc
 
 ### Medium — retention and data minimization remain undefined
 
-Provider events retain raw payloads, while outbox, delivery, reconciliation, attempt, and operator audit records accumulate. No records or TTL policies were added/deleted in this implementation. Define legal/business retention, access, backup, and deletion rules before any cleanup; accounting and audit records must not be deleted without an approved policy.
+Provider events retain raw payloads, while outbox, delivery, reconciliation, attempt, and operator audit records accumulate. `RETENTION_POLICY_PROPOSAL.md` outlines record classes and approval controls; periods and applicable jurisdictions remain unset. No records or TTL policies were added/deleted. Define legal/business retention, access, backup, and deletion rules before cleanup; accounting and audit records must not be deleted without an approved policy.
 
 ### Medium — dashboard bearer token in localStorage
 
@@ -48,10 +49,10 @@ The demo seed now exits before making requests when `NODE_ENV=production`. Demo 
 
 ## Financial correctness review
 
-Ledger posting templates validate positive integer lines and equal debits/credits; model validation repeats the invariant. Payment transitions reject backwards state movement. Refund reservation/finalization uses transactional conditional updates. Tests passed for ledger balance, lifecycle, duplicate idempotency, and concurrent distinct-key refund reservations staying within the captured amount. Journal entries are documented as append-only but database-level update/delete immutability is not enforced; an operator reversal/correction path should be defined before treating the ledger as tamper-resistant.
+Ledger posting templates validate positive integer lines and equal debits/credits; model validation repeats the invariant. Payment transitions reject backwards state movement. Refund reservation/finalization uses transactional conditional updates. Stage 4 adds Mongoose safeguards rejecting persisted document save, query update/replace/delete, document delete, and non-insert bulk writes. Tests verify these application paths against synthetic records. Native MongoDB collection/driver/admin access can bypass Mongoose; database-level role enforcement is not configured or tested against production credentials. See `LEDGER_IMMUTABILITY.md` for the least-privilege follow-up. Reversals/adjustments must remain new balanced entries.
 
 Settlement remains simulated. Review found it can sweep the merchant's full ledger balances when any mature payment qualifies, while linking only mature payments in the settlement record. This may attribute balances from newer payments to an earlier settlement. The allocation/netting policy needs a separate explicit accounting decision; no behavior was changed here. Reconciliation remains basic and lacks settlement-file matching, fee variance, and duplicate provider transaction reporting.
 
 ## Verification limits
 
-See `TESTING_RESULTS.md` for commands/results. The repository has no lint script. No historical operational/audit records were deleted and no retention policy was introduced. The Render free-tier setup and hosted environment were not changed or deployed.
+See `TESTING_RESULTS.md` for commands/results. The repository has no lint script. No historical operational/audit records were deleted and no retention cleanup was introduced. The Render free-tier setup and hosted environment were not changed or deployed.

@@ -29,6 +29,8 @@
 - Production/demo topology and durability differ: local Compose uses Redis AOF and separate API/worker; Render free demo uses nonpersistent free Key Value and in-process workers. Document this as a demo limitation, not a production-grade queue guarantee.
 - Reconciliation is a useful basic comparison, not full settlement reconciliation: current design does not establish settlement-file matching, duplicate provider transaction reporting, or fee variance matching.
 - Settlement review found the simulator sweeps the merchant's full ledger balances when any mature payment qualifies, while associating only mature captured payments with the settlement record. This can attribute newer payment balances to a settlement early; allocation semantics need a specific accounting/product decision and were not changed in this batch.
+- Stage 4 review documented a source-allocation design and test matrix in `SETTLEMENT_ALLOCATION_DESIGN.md`. Settlement behavior remains unchanged pending approval of maturity, refunds, fees, and partial allocation policy.
+- Journal entries now reject ordinary Mongoose mutation and deletion paths. This is an application safeguard only; native MongoDB access remains governed by database credentials and requires a separately approved least-privilege role.
 
 ## Current scope limits
 

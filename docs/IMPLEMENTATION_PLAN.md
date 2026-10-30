@@ -1,6 +1,6 @@
 # PayOps Audit Remediation Plan
 
-Stage 1 inspection is complete. Work proceeded under the owner's explicit Stage 3 approval. Phases A–D received the changes listed in `IMPLEMENTATION_CHANGELOG.md`; unresolved financial design work remains below.
+Stage 1 inspection is complete. Stage 3 was committed at `d79fd1762830686b3e62518e8662c031784726bd` before this Stage 4 review. Stage 4 changes are local and uncommitted. See `IMPLEMENTATION_CHANGELOG.md`; unresolved settlement/retention policy work remains gated below.
 
 ## Batch 1 — secret exposure and durable delivery recovery
 
@@ -35,3 +35,10 @@ Review a small diff, run focused regression tests, then run the repository CI-eq
 ## Unresolved financial correctness issue
 
 Settlement simulation may sweep balances associated with newer, not-yet-mature payments when an older payment triggers a run, while the settlement record links only mature payments. Correcting this requires a decision on allocation and refund netting; it is documented rather than silently changing settlement semantics. Obtain explicit scope approval before changing that accounting behavior.
+
+## Stage 4 status and approval gates
+
+1. Settlement allocation design and required regression scenarios are in `SETTLEMENT_ALLOCATION_DESIGN.md`. No settlement implementation changed. Obtain decisions on maturity, full/partial allocation, refund netting, fees, and whether simulated payout remains in scope before implementation.
+2. `JournalEntry` Mongoose middleware now blocks ordinary updates, replacements, and deletes while retaining inserts. Database-native access is not covered. A least-privilege MongoDB role requires a separate credential/operations review and explicit approval before deployment changes.
+3. Checkout's internal seed consumer migrated to Authorization; the browser strips capability URLs before paint and sets no-referrer policy. Backend query fallback remains until direct external consumers are confirmed migrated.
+4. `RETENTION_POLICY_PROPOSAL.md` lists record classes and safe controls. No duration was invented and no archive/deletion code was added; approve periods, jurisdictions, holds, and ownership first.

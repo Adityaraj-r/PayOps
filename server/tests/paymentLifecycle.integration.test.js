@@ -157,4 +157,32 @@ if (process.env.CI === 'true' && !enabled) {
     await models.WebhookDelivery.deleteOne({ _id: delivery._id });
     await models.WebhookEndpoint.deleteOne({ _id: endpoint._id });
   }, 30000);
+
+  test('posted journal entries reject Mongoose updates and deletion while preserving balanced records', async () => {
+    const entry = await models.JournalEntry.create({
+      merchantId: merchant._id,
+      type: 'capture',
+      ref: `immutability-${Date.now()}`,
+      idempotencyKey: `immutability-${Date.now()}`,
+      lines: [
+        { account: 'provider_receivable', direction: 'debit', amount: 100 },
+        { account: 'merchant_payable', direction: 'credit', amount: 100 },
+      ],
+    });
+
+    await expect(models.JournalEntry.updateOne({ _id: entry._id }, { $set: { ref: 'changed' } })).rejects.toThrow(/immutable/i);
+    await expect(models.JournalEntry.findOneAndUpdate({ _id: entry._id }, { $set: { ref: 'changed' } })).rejects.toThrow(/immutable/i);
+    await expect(models.JournalEntry.deleteOne({ _id: entry._id })).rejects.toThrow(/immutable/i);
+    await expect(models.JournalEntry.deleteMany({ _id: entry._id })).rejects.toThrow(/immutable/i);
+    await expect(models.JournalEntry.bulkWrite([{ updateOne: { filter: { _id: entry._id }, update: { $set: { ref: 'changed' } } } }])).rejects.toThrow(/insert new entries/i);
+
+    const loaded = await models.JournalEntry.findById(entry._id);
+    loaded.ref = 'changed';
+    await expect(loaded.save()).rejects.toThrow(/immutable/i);
+    await expect(loaded.deleteOne()).rejects.toThrow(/immutable/i);
+
+    const stored = await models.JournalEntry.findById(entry._id).lean();
+    expect(stored.ref).toBe(entry.ref);
+    expect(stored.lines.reduce((sum, line) => sum + (line.direction === 'debit' ? line.amount : -line.amount), 0)).toBe(0);
+  }, 30000);
 });

@@ -36,6 +36,34 @@ JournalEntrySchema.pre('validate', function checkBalanced(next) {
   }
 });
 
+// Journal entries are immutable after insertion. Corrections are new, balanced
+// reversal/adjustment entries. Query middleware also blocks update/delete paths
+// so ordinary Mongoose callers cannot bypass the append-only service contract.
+JournalEntrySchema.pre('save', function preventSavedEntryMutation(next) {
+  if (!this.isNew) return next(new Error('Posted journal entries are immutable'));
+  next();
+});
+
+const IMMUTABLE_QUERY_OPERATIONS = [
+  'updateOne', 'updateMany', 'findOneAndUpdate', 'replaceOne', 'findOneAndReplace',
+  'deleteOne', 'deleteMany', 'findOneAndDelete', 'findOneAndRemove',
+];
+for (const operation of IMMUTABLE_QUERY_OPERATIONS) {
+  JournalEntrySchema.pre(operation, function preventJournalMutation() {
+    throw new Error('Posted journal entries are immutable; post a reversal or adjustment instead');
+  });
+}
+
+JournalEntrySchema.pre('deleteOne', { document: true, query: false }, function preventDocumentDelete() {
+  throw new Error('Posted journal entries are immutable; post a reversal or adjustment instead');
+});
+
+// Model.bulkWrite bypasses ordinary query middleware. Permit inserts only.
+JournalEntrySchema.pre('bulkWrite', function preventBulkMutation(next, operations) {
+  if (operations.every((operation) => operation.insertOne)) return next();
+  next(new Error('Journal entry bulk writes may only insert new entries'));
+});
+
 JournalEntrySchema.index({ merchantId: 1, createdAt: -1 });
 
 module.exports = model('JournalEntry', JournalEntrySchema);
