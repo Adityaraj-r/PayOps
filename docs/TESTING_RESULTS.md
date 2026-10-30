@@ -49,6 +49,28 @@
 | Dependency security | **Client:** 0 vulnerabilities. **Server production dependencies:** 0 vulnerabilities in prior Stage 4 audit. **Full server tree:** 6 low-severity Jest transitive findings remain; no breaking forced downgrade applied. |
 | `git diff --check` | **Passed** on the final worktree diff. |
 
+## Module 3 — final verification (2026-10-30)
+
+**Review base:** `e2c30a845531b2d97203041bcafa4c9f1f5c6500` (`main`, matching `origin/main` at inspection). The pre-existing untracked root `package-lock.json` was preserved and not read, edited, or staged. No application logic, environment settings, deployment resources, or production data were changed.
+
+| Check | Result |
+|---|---|
+| Backend full suite including lifecycle integration: `PAYOPS_INTEGRATION=1`, disposable MongoDB 7 single-node replica set at loopback port 27122 and Redis 7 at loopback port 16384; `npm test -- --runInBand --no-cache --forceExit --cacheDirectory .jest-cache-module3-integration` (`server`) | **Passed:** 19 suites, 78 tests, no skipped tests. Integration exercised the payment lifecycle. |
+| Backend suite without integration flag (`server`) | Sandbox run initially had 17 passed suites, 1 skipped, 1 failed due to loopback `EACCES` on `reconciliationIsolation.test.js`; rerun with approved loopback access passed 18 suites, 73 tests, 5 skipped. The integration-enabled full run above is the final result. |
+| Frontend production build: `npm run build` (`client`) | **Passed:** Vite 6.4.5 transformed 59 modules. |
+| Render/Vercel config validator: `npm run check:deploy-config` (`server`) | **Passed:** repository layout matched configuration. |
+| Compose validation: `docker compose config --quiet` | **Passed.** |
+| Docker images: `docker compose build` | **Passed:** API/worker image and dashboard image built. Existing project containers were not restarted or changed. |
+| Nginx config: `docker run --rm --add-host api:127.0.0.1 payops-dashboard:local nginx -t` | **Passed:** syntax and configuration successful. Initial run without the Compose `api` hostname mapping failed during upstream DNS resolution; retry with the temporary mapping passed. |
+| Server dependency audit: `npm audit --audit-level=moderate` | **Finding:** six low-severity advisories in Jest's transitive `deepmerge` development dependency tree. No moderate/high findings. `npm audit fix --force` proposes a breaking downgrade to Jest 25.1.0; no dependency changes were made. |
+| Client dependency audit: `npm audit --audit-level=moderate` | **Passed:** zero vulnerabilities. |
+| Lint | **Not available:** no lint script in either package. |
+| Browser visual/E2E review | **Not run:** browser use is disabled in current Work settings and no browser E2E harness is configured. The existing README screenshot was preserved. |
+| Secret review | **Limited:** no secret values were intentionally added; test credentials were disposable and supplied in the process environment. No dedicated repository secret scanner was run. |
+| `git diff --check` | **Passed:** no whitespace errors in the final documentation diff. |
+
+The first Docker Nginx check failed because the standalone image had no `api` host mapping; the Compose-provided hostname mapping resolved it. The first test-only sandbox run could not access an ephemeral localhost port; the approved rerun passed. The npm audit initially failed to resolve the registry in the sandbox; approved registry access returned the findings above. Only the disposable containers `payops-module3-mongo` and `payops-module3-redis` were stopped after testing. Pre-existing `onyx-api-1` and `onyx-worker-1` were left untouched.
+
 ### Stage 4 test attempts and constraints
 
 - One focused Jest invocation failed before assertions because the sandbox blocked cache writes to the Windows temp directory. Re-running with `--cacheDirectory .jest-cache-stage4` passed.

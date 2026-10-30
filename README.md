@@ -26,7 +26,7 @@ flowchart LR
   Dashboard[React dashboard] --> API
 ```
 
-The API owns synchronous validation and state changes. MongoDB stores payment, ledger, outbox, and delivery records; transactions require a replica set. Redis backs BullMQ queues, rate limiting, and counters. Workers simulate provider events, dispatch refunds and webhooks, and run maintenance tasks. Docker Compose starts MongoDB, Redis, API, worker, and an Nginx-hosted dashboard.
+The API owns synchronous validation and state changes. MongoDB stores payment, ledger, outbox, and delivery records; transactions require a replica set. Redis backs BullMQ queues, rate limiting, and counters. Docker Compose runs a distinct worker container; the selected Render demo blueprint instead runs workers inside the API process. The React dashboard and hosted checkout are served by Nginx in Docker, or Vercel in the documented hosted layout.
 
 ## Payment lifecycle and reliability concepts
 
@@ -36,6 +36,8 @@ The API owns synchronous validation and state changes. MongoDB stores payment, l
 - **Webhook outbox:** Payment changes and outbox events commit together. Delivery records are durable in MongoDB, while BullMQ runs delivery attempts with backoff. A recovery scan re-enqueues pending deliveries whose jobs are missing; MongoDB leases reduce simultaneous duplicate processing. Delivery is at least once, so consumers should deduplicate by event ID.
 - **Checkout security:** New checkout links carry a capability in the URL fragment. The browser removes it from the visible URL and sends it in an Authorization header. Request logs omit query values and redact credential headers. The backend retains a query-token fallback for legacy direct clients during migration.
 - **Background jobs:** Separate queues handle payment simulation, refunds, webhook delivery, and maintenance. Redis holds queue state; durability depends on Redis persistence and the deployment tier.
+- **Refunds:** Refund requests reserve refundable value atomically before provider work. The mock provider can fail; retry exhaustion and ambiguous outcomes have operational recovery paths. These are simulations and do not move funds.
+- **Provider reconciliation:** The app compares stored provider observations with the simulator/provider adapter and ledger records. It is not a bank statement import or proof of settlement.
 - **Settlement simulation:** The current simulator sweeps account balances when an eligible mature payment exists. Its settlement record links only the mature payments, so the swept amount may include other activity. This known allocation limitation is documented; the simulator is not payment reconciliation and must not be treated as a real payout.
 
 ## Technology
@@ -96,6 +98,8 @@ npm run dev
 ```
 
 See [docs/DEPLOY.md](docs/DEPLOY.md) for the current demo deployment configuration and its limitations. The existing Vercel demo hostname is <https://onyx-omega-fawn.vercel.app/>; that legacy hostname and its availability have not been verified as part of this README update.
+
+The browser walkthrough and dashboard screenshots were not rechecked interactively for this update because browser use is unavailable in the current environment. The image above is the repository's existing dashboard screenshot.
 
 ## API and webhooks
 
@@ -169,6 +173,8 @@ Neither package currently defines a lint script. See [docs/TESTING_RESULTS.md](d
 The repository history was rewritten to a snapshot, so its current root commit does not establish authorship for every inherited file or feature. The local provenance audit distinguishes inherited code from commit-level evidence; see [docs/OWNERSHIP_AUDIT.md](docs/OWNERSHIP_AUDIT.md).
 
 The current history records Aditya's Stage 3 commit (`d79fd17`) for checkout capability handling, request-log redaction, webhook delivery recovery/leases, Nginx API routing, demo seed protection, regression tests, and audit documentation. Stage 4 (`a44c1af`) adds Mongoose-level journal immutability safeguards and tests, migrates the demo seed to header authentication, tightens browser token cleanup/referrer handling, and documents settlement and retention decisions. These claims describe those diffs only; they do not claim sole authorship of the inherited payment platform.
+
+The pushed Module 2 dashboard commit (`e2c30a8`) adds the documented dashboard presentation, summaries, loading/empty states, and review confirmations using existing APIs. It did not change backend payment or ledger behavior. See [docs/OWNERSHIP_AUDIT.md](docs/OWNERSHIP_AUDIT.md) for the provenance limits and specific evidence.
 
 ## Acknowledgements
 
