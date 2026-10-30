@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { api } from '../api.js';
 import { useResource } from '../hooks.js';
 import { timeAgo } from '../format.js';
-import { CopyText, ErrorNote, Modal } from '../components/ui.jsx';
+import { CopyText, ErrorNote, Loading, Modal } from '../components/ui.jsx';
 
 const API_BASE = window.location.origin;
 
@@ -33,7 +33,7 @@ function verifyPayOps(rawBody, header, secret) {
 }`;
 
 export default function Developers() {
-  const { data, error, reload } = useResource('/keys');
+  const { data, error, reload, loading } = useResource('/keys');
   const [newKey, setNewKey] = useState(null);
   const [rollError, setRollError] = useState(null);
   const [confirming, setConfirming] = useState(false);
@@ -66,9 +66,11 @@ export default function Developers() {
         <section className="panel">
           <div className="panel-head">
             <h2>Secret key</h2>
-            <button className="btn ghost small" onClick={() => setConfirming(true)}>Roll key</button>
+            <button className="btn ghost small" onClick={() => setConfirming(true)} disabled={loading}>Roll key</button>
           </div>
-          {newKey ? (
+          {loading && !data ? (
+            <Loading>Loading API keys…</Loading>
+          ) : newKey ? (
             <div className="form">
               <div className="notice wait">Copy this now. It will not be shown again, and the old key has stopped working.</div>
               <div className="secret-box code">{newKey}</div>
@@ -80,9 +82,9 @@ export default function Developers() {
               <dt>Mode</dt><dd>{active.mode}</dd>
               <dt>Last used</dt><dd>{active.last_used_at ? timeAgo(active.last_used_at) : 'Never'}</dd>
             </dl>
-          ) : (
+          ) : data ? (
             <p className="muted">No active key. Roll one to start.</p>
-          )}
+          ) : null}
         </section>
         <section className="panel">
           <h2>Limits</h2>

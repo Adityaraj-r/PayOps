@@ -67,3 +67,24 @@
 - No lint scripts are configured in either `client/package.json` or `server/package.json`; lint was not run.
 - The smoke against the existing application stack could not return successful API responses because its API container could not resolve/connect to stopped Mongo. Its built-in Nginx error log can include original request targets on upstream failures; new supported checkout flows do not send capabilities in query strings, but legacy direct API query clients retain that risk. A successful path-preservation smoke was run separately against an isolated stub API. Disposable integration and smoke containers were removed; existing `onyx-*` resources were left unchanged.
 - No deploy, live provider call, external service mutation, or real payment was performed.
+
+## Module 1 functional completion review
+
+**Review base:** `f9d182a68d686f3b23623e3ccf00e63eb177b5dc`. These checks cover the local uncommitted Module 1 UI/documentation updates and the existing backend implementation. No deployment or production resource was used.
+
+| Check | Result |
+|---|---|
+| Backend unit suite: `npm test -- --runInBand --cacheDirectory .jest-cache-module1` | First sandbox attempt: 72 passed, 1 failed on local HTTP `EACCES`, 5 skipped. Retry with loopback access: **18 suites passed, 73 tests passed, 5 skipped**. |
+| Backend suite with integration: `PAYOPS_INTEGRATION=1 npm test -- --runInBand --no-cache --forceExit --cacheDirectory .jest-cache-module1-integration2` against disposable MongoDB replica set and Redis | **Passed: 19 suites, 78 tests.** The first container hostname-discovery attempt failed before test setup; direct mapped-port connection resolved the environment issue. Temporary containers and generated Jest caches were removed. |
+| Frontend production build: `npm run build` (`client`) | **Passed:** Vite built 59 modules. |
+| Docker Compose syntax: `docker compose config --quiet` | **Passed.** |
+| Render/Vercel config: `npm run check:deploy-config` (`server`) | **Passed:** configuration matches repository layout. |
+| Docker image build: `docker compose build` | **Passed:** API/worker and dashboard images built locally. No services were started. |
+| Production dependency audit: `npm audit --omit=dev` (`server`) | **Passed:** 0 vulnerabilities. |
+| Frontend dependency audit: `npm audit` (`client`) | **Passed:** 0 vulnerabilities. |
+| Full backend dependency audit: `npm audit` (`server`) | **Finding:** 6 low-severity transitive development-tool advisories in Jest/deepmerge. The suggested `--force` remedy downgrades Jest to 25.1.0 and is breaking; no dependency changes were made. |
+| Lint | **Not available:** neither package has a lint script. |
+| Frontend browser E2E | **Not available:** no browser automation harness is configured. |
+| `git diff --check` | **Passed** after this review's edits. |
+
+The initial sandbox test/audit network failures were rerun with the necessary loopback/registry access. The current frontend edits have build verification but no automated component/browser assertions. The integration suite verifies existing API/business services and HTTP authorization behavior; no real provider, payout, or production API was called.

@@ -1,7 +1,7 @@
 // PayOps | Author: differentiatorX <madhur.m2006@gmail.com> | https://github.com/differentiatorX | MIT License
 import { useResource } from '../hooks.js';
 import { money } from '../format.js';
-import { ErrorNote } from '../components/ui.jsx';
+import { ErrorNote, Loading } from '../components/ui.jsx';
 import LedgerTAccount from '../components/LedgerTAccount.jsx';
 
 export default function Ledger() {
@@ -19,6 +19,7 @@ export default function Ledger() {
         <button className="btn ghost" onClick={reload} disabled={loading}>Check integrity again</button>
       </div>
       <ErrorNote error={error} />
+      {loading && !data && <section className="panel"><Loading>Loading ledger and integrity check…</Loading></section>}
       {data && (
         <div className="grid-2">
           <div className="stack">

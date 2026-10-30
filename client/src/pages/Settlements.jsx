@@ -3,10 +3,10 @@ import { useState } from 'react';
 import { api } from '../api.js';
 import { useResource } from '../hooks.js';
 import { dateTime, money } from '../format.js';
-import { Empty, ErrorNote } from '../components/ui.jsx';
+import { Empty, ErrorNote, Loading } from '../components/ui.jsx';
 
 export default function Settlements() {
-  const { data, error, reload } = useResource('/settlements');
+  const { data, error, reload, loading } = useResource('/settlements');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(null);
   const [runError, setRunError] = useState(null);
@@ -38,7 +38,9 @@ export default function Settlements() {
       {message && <div className="notice good" style={{ marginBottom: 14 }}>{message}</div>}
       <ErrorNote error={error || runError} />
       <section className="panel" style={{ padding: 0 }}>
-        {data?.data.length ? (
+        {loading && !data ? (
+          <Loading>Loading simulated settlements…</Loading>
+        ) : data?.data.length ? (
           <div className="table-wrap">
             <table>
               <thead>
@@ -60,7 +62,7 @@ export default function Settlements() {
             </table>
           </div>
         ) : (
-          data && <Empty title="No settlements yet">The worker settles every few minutes, or use Settle now.</Empty>
+          data && <Empty title="No settlements yet">The worker settles every few minutes, or use Simulate settlement.</Empty>
         )}
       </section>
     </>

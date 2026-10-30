@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 import { useResource } from '../hooks.js';
 import { dateTime, money } from '../format.js';
-import { Empty, ErrorNote } from '../components/ui.jsx';
+import { Empty, ErrorNote, Loading } from '../components/ui.jsx';
 import { useAuth } from '../auth.jsx';
 
 const BUCKETS = [
@@ -15,7 +15,7 @@ const BUCKETS = [
 
 export default function Reconciliation() {
   const { merchant } = useAuth();
-  const { data, error, reload } = useResource('/reconciliation');
+  const { data, error, reload, loading } = useResource('/reconciliation');
   const [busy, setBusy] = useState(false);
   const [runError, setRunError] = useState(null);
 
@@ -44,7 +44,9 @@ export default function Reconciliation() {
       </div>
       <ErrorNote error={error || runError} />
 
-      {latest ? (
+      {loading && !data ? (
+        <section className="panel"><Loading>Loading reconciliation history…</Loading></section>
+      ) : latest ? (
         <div className="stack">
           <section className="panel">
             <div className="panel-head">
@@ -52,7 +54,7 @@ export default function Reconciliation() {
               <span className="muted small">{dateTime(latest.created_at)}, {latest.trigger === 'manual' ? 'run by you' : 'scheduled'}</span>
             </div>
             {latest.issue_count === 0 && latest.ledger?.balanced !== false ? (
-              <div className="notice good">Your payments match the bank, and your ledger balances.</div>
+              <div className="notice good">Provider payment records match, and your ledger balances.</div>
             ) : (
               <div className="notice bad">{latest.issue_count} payment{latest.issue_count === 1 ? '' : 's'} need a look{latest.ledger?.balanced === false ? ', and the ledger has drift' : ''}.</div>
             )}

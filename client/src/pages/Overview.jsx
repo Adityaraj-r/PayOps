@@ -4,12 +4,12 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useResource } from '../hooks.js';
 import { useAuth } from '../auth.jsx';
 import { money, timeAgo } from '../format.js';
-import { Empty, ErrorNote, StatusPill } from '../components/ui.jsx';
+import { Empty, ErrorNote, Loading, StatusPill } from '../components/ui.jsx';
 import VolumeChart from '../components/VolumeChart.jsx';
 import CreatePaymentModal from '../components/CreatePaymentModal.jsx';
 
 export default function Overview() {
-  const { data, error, reload } = useResource('/overview', { pollMs: 5000 });
+  const { data, error, reload, loading } = useResource('/overview', { pollMs: 5000 });
   const [creating, setCreating] = useState(false);
   const nav = useNavigate();
   const { merchant } = useAuth();
@@ -25,26 +25,28 @@ export default function Overview() {
         <button className="btn" onClick={() => setCreating(true)}>Create test payment</button>
       </div>
       <ErrorNote error={error} />
+      {loading && !data && <section className="panel"><Loading>Loading overview…</Loading></section>}
 
       {data && (
         <>
           <section className="figures" aria-label="Balances">
             <div className="figure">
-              <div className="label">Waiting to be paid out</div>
+              <div className="label">Merchant payable (simulated)</div>
               <div className="value">{money(data.balances.unsettled)}</div>
-              <div className="hint">Captured, minus fees and refunds</div>
+              <div className="hint">Current ledger balance</div>
             </div>
             <div className="figure">
-              <div className="label">Paid out so far</div>
+              <div className="label">Simulated payouts recorded</div>
               <div className="value">{money(data.balances.paid_out)}</div>
-              <div className="hint">Across all settlements</div>
+              <div className="hint">Sum of simulated settlement records</div>
             </div>
             <div className="figure">
-              <div className="label">Fees paid</div>
+              <div className="label">Fees recorded</div>
               <div className="value">{money(data.balances.fees_paid)}</div>
-              <div className="hint">{feePct}% of each captured payment</div>
+              <div className="hint">{feePct}% fee recorded on captures</div>
             </div>
           </section>
+          <p className="muted small">These are simulation ledger figures. Settlement allocation does not yet trace every swept amount to eligible payments.</p>
 
           <div className="grid-2">
             <section className="panel">
@@ -57,8 +59,8 @@ export default function Overview() {
             <section className="panel">
               <h2>Payment outcomes</h2>
               <dl className="facts">
-                <dt>Success rate</dt>
-                <dd className="num">{data.success_rate == null ? 'No finished payments yet' : `${(data.success_rate * 100).toFixed(1)}% of finished payments`}</dd>
+                <dt>Capture rate</dt>
+                <dd className="num">{data.success_rate == null ? 'No captured or failed payments in this period' : `${(data.success_rate * 100).toFixed(1)}% of captured or failed payments created in this period`}</dd>
                 {Object.entries(data.status_counts).map(([status, count]) => (
                   <FactRow key={status} status={status} count={count} />
                 ))}

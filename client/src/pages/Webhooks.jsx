@@ -4,11 +4,11 @@ import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 import { useResource } from '../hooks.js';
 import { EVENT_LABELS, dateTime, timeAgo } from '../format.js';
-import { CopyText, Empty, ErrorNote, Modal, StatusPill } from '../components/ui.jsx';
+import { CopyText, Empty, ErrorNote, Loading, Modal, StatusPill } from '../components/ui.jsx';
 
 export default function Webhooks() {
   const [filter, setFilter] = useState('');
-  const { data, error, reload } = useResource(`/webhooks${filter ? `?status=${filter}` : ''}`, { pollMs: 3000 });
+  const { data, error, reload, loading } = useResource(`/webhooks${filter ? `?status=${filter}` : ''}`, { pollMs: 3000 });
   const [adding, setAdding] = useState(false);
   const [revealed, setRevealed] = useState({});
   const [inspecting, setInspecting] = useState(null);
@@ -34,6 +34,7 @@ export default function Webhooks() {
         <button className="btn" onClick={() => setAdding(true)}>Add endpoint</button>
       </div>
       <ErrorNote error={error || actionError} />
+      {loading && !data && <section className="panel"><Loading>Loading webhook endpoints and deliveries…</Loading></section>}
 
       {data && (
         <>
@@ -122,7 +123,7 @@ export default function Webhooks() {
                 <tr key={i}>
                   <td className="num">{a.attempt_number}</td>
                   <td>{dateTime(a.at)}</td>
-                  <td>{a.error ? <span style={{ color: 'var(--debit)' }}>{a.error}</span> : <span style={{ color: 'var(--credit)' }}>{a.status_code} OK</span>}</td>
+                  <td>{a.error ? <span style={{ color: 'var(--debit)' }}>{a.error}</span> : <span style={{ color: 'var(--credit)' }}>HTTP {a.status_code}</span>}</td>
                   <td className="amount" style={{ fontFamily: 'var(--sans)' }}>{a.duration_ms} ms</td>
                 </tr>
               ))}

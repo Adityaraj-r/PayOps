@@ -15,6 +15,10 @@ export function Empty({ title, children }) {
   );
 }
 
+export function Loading({ children = 'Loading…' }) {
+  return <div className="empty" role="status" aria-live="polite">{children}</div>;
+}
+
 export function ErrorNote({ error }) {
   if (!error) return null;
   return <div className="notice bad" role="alert">{error.message}</div>;
