@@ -74,9 +74,9 @@ This follow-up was included in commit `f9d182a68d686f3b23623e3ccf00e63eb177b5dc`
 | `client/src/pages/Webhooks.jsx` | Any 2xx response was shown as “OK”, which hid the actual response code. | Display the actual `HTTP <status>` value. | Frontend production build passed. |
 | `docs/MODULE1_AUDIT.md` | No single status list separated working, partial, missing, and intentionally deferred Module 1 areas. | Record feature status, evidence, known limits, and Module 2 handoff items. | Claims are limited to code review and executed checks listed in `TESTING_RESULTS.md`. |
 
-## Module 2 — dashboard UI/UX polish (working tree)
+## Module 2 — dashboard UI/UX polish (committed)
 
-**Review base:** Module 1 commit `c8a1981ba4f63f1df4e11cafbbe10d867433a9de`. These changes are local and uncommitted. No backend, payment, refund, ledger, idempotency, webhook recovery, or settlement business logic was changed. The pre-existing root `package-lock.json` remains untouched.
+**Review base:** Module 1 commit `c8a1981ba4f63f1df4e11cafbbe10d867433a9de`. These dashboard changes were committed and pushed in `e2c30a845531b2d97203041bcafa4c9f1f5c6500`. No backend, payment, refund, ledger, idempotency, webhook recovery, or settlement business logic was changed. The pre-existing root `package-lock.json` remains untouched.
 
 | File | Original problem | Implemented solution / reason | Tests / remaining limitations |
 |---|---|---|---|
@@ -92,9 +92,11 @@ This follow-up was included in commit `f9d182a68d686f3b23623e3ccf00e63eb177b5dc`
 
 ## Module 3 — final verification and interview documentation
 
+Module 3 documentation changes were committed and pushed in `f09deb8d29fae62e132426469649ff98e4047e63`. At that commit, `main` and `origin/main` were synchronized and the only untracked file was the pre-existing root `package-lock.json`. The current status-correction pass modifies only this changelog, `IMPLEMENTATION_PLAN.md`, and `OWNERSHIP_AUDIT.md`; no files are staged or committed by this pass. The settlement allocation mismatch, database-native ledger mutation boundary, legacy checkout query compatibility, retention-policy gap, and unverified browser presentation remain technical limitations; this documentation correction does not change those findings or prior test results.
+
 | File | Original problem | Implemented solution / reason | Verification and remaining limitations |
 |---|---|---|---|
 | `README.md` | It described architecture and core payment mechanisms but did not include the pushed Module 2 dashboard work, actual Docker-vs-Render worker topology, or current browser verification boundary. | Clarify simulation scope, the deployment topology, refund/reconciliation limits, existing screenshot status, and the Module 2 commit evidence. | README-only prose change; verified setup and topology against Compose, Render, Vercel, package scripts, and deployment docs. Hosted resource names/URLs remain as configured and were not changed. |
 | `docs/INTERVIEW.md` | The guide had a short pitch and fewer than 20 interview questions, with no complete timed demo flow or concise verified resume bullets. | Replace it with a 60-second pitch, current architecture diagram, payment lifecycle, design limits, 28 Q&As, 5–7 minute demo sequence, and evidence-bounded resume bullets. | Content checked against current routes, services, provider simulator, audit documents, and commit evidence. Browser demo was not run; demo steps are a rehearsal guide, not evidence of interactive browser verification. |
 | `docs/TESTING_RESULTS.md` | The results predated this Module 3 verification run. | Record exact current backend, frontend, Docker, config, audit, and browser-check results, including the initial sandbox-only failure and successful rerun. | Integration suite ran against disposable MongoDB/Redis; only those named containers were stopped. Existing `onyx-api-1` and `onyx-worker-1` were left running. No deployment or production data was used. |
-| `docs/OWNERSHIP_AUDIT.md` | Git evidence was current only through the previous dashboard polish commit. | Update the reviewed baseline to `e2c30a8`, record the Module 2 dashboard contribution and distinguish this uncommitted documentation pass. | Git metadata and diffs inspected. This documentation change does not establish authorship of inherited implementation. |
+| `docs/OWNERSHIP_AUDIT.md` | Git evidence was current only through the previous dashboard polish commit and incorrectly described Module 3 documentation as uncommitted. | Update the reviewed baseline to `f09deb8`, record the Module 2 and Module 3 commits, and distinguish documentation updates from implementation authorship. | Git metadata and diffs inspected. This documentation change does not establish authorship of inherited implementation. |

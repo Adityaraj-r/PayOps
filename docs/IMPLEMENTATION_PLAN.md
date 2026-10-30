@@ -1,6 +1,6 @@
 # PayOps Audit Remediation Plan
 
-Stage 1 inspection is complete. Stage 3 was committed at `d79fd1762830686b3e62518e8662c031784726bd`; Stage 4 was committed and pushed at `a44c1af67b975cf57ce0aabaefe6bea88c384394`. The interview-readiness review has a small local webhook lease correction and documentation update; those changes remain uncommitted by request. See `IMPLEMENTATION_CHANGELOG.md`; unresolved settlement/retention policy work remains gated below.
+Stage 1 inspection is complete. Stage 3 was committed at `d79fd1762830686b3e62518e8662c031784726bd`; Stage 4 was committed and pushed at `a44c1af67b975cf57ce0aabaefe6bea88c384394`; interview-readiness changes were committed and pushed at `f9d182a68d686f3b23623e3ccf00e63eb177b5dc`; Module 1 and Module 2 changes were committed at `c8a1981ba4f63f1df4e11cafbbe10d867433a9de` and `e2c30a845531b2d97203041bcafa4c9f1f5c6500`; and Module 3 verification documentation was committed at `f09deb8d29fae62e132426469649ff98e4047e63`. At the start of the current documentation status-correction pass, `main` and `origin/main` were synchronized at `f09deb8`; this pass changes only this plan, the ownership audit, and the implementation changelog, and nothing is staged. The pre-existing untracked root `package-lock.json` remains excluded. See `IMPLEMENTATION_CHANGELOG.md`; unresolved settlement/retention policy work remains gated below.
 
 ## Batch 1 — secret exposure and durable delivery recovery
 

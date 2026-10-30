@@ -5,7 +5,9 @@
 
 ## Git evidence
 
-The current `main` branch is a rewritten history beginning with aggregate snapshot `9d48e86` (`Establish PayOps project history`), followed by `7d52c31`, `a0a2684`, Stage 3 commit `d79fd17`, Stage 4 commit `a44c1af`, interview-readiness commit `f9d182a`, Module 1 review commit `c8a1981`, and Module 2 dashboard commit `e2c30a8`. The recent implementation commits use `Aditya <aadiraj267@gmail.com>` as author. At this review, `main` and `origin/main` point to `e2c30a845531b2d97203041bcafa4c9f1f5c6500`. The Module 3 README/interview/testing/provenance edits are uncommitted documentation changes and are not commit-level contribution evidence yet.
+The current `main` branch is a rewritten history beginning with aggregate snapshot `9d48e86` (`Establish PayOps project history`), followed by `7d52c31`, `a0a2684`, Stage 3 commit `d79fd17`, Stage 4 commit `a44c1af`, interview-readiness commit `f9d182a`, Module 1 review commit `c8a1981`, Module 2 dashboard commit `e2c30a8`, and Module 3 documentation commit `f09deb8`. The recent implementation commits use `Aditya <aadiraj267@gmail.com>` as author. At this review, `main`, `origin/main`, and GitHub `main` point to `f09deb8d29fae62e132426469649ff98e4047e63`.
+
+**Working-tree status:** at the `f09deb8` baseline, there were no modified or staged tracked files. This status-correction pass modifies only this audit, the implementation plan, and the implementation changelog; none are staged. The only untracked file remains the pre-existing root `package-lock.json`, which is outside the project changes under review.
 
 The local recovery ref `backup/pre-rewrite/main-20261030` retains the earlier history, including commits attributed to Madhur / `differentiatorX`. The rewrite changes reachable history attribution; it does not establish that every pre-existing implementation was independently authored by the rewritten author. The snapshot in `9d48e86` is an aggregate snapshot and cannot replace file-level provenance evidence.
 
@@ -29,7 +31,7 @@ The baseline snapshot contains the payment API, payment/refund workflows, ledger
 - Interview-readiness commit `f9d182a68d686f3b23623e3ccf00e63eb177b5dc`, authored by Aditya, adds the webhook recovery case for stale processing deliveries without a lease and updates interview/README/audit documentation. The file-level record is in `IMPLEMENTATION_CHANGELOG.md`.
 - Module 1 review commit `c8a1981ba4f63f1df4e11cafbbe10d867433a9de`, authored by Aditya, adds accessible first-load feedback, more accurate simulated dashboard labels, and the Module 1 feature audit/testing record. It does not change payment, refund, ledger, webhook, or settlement business logic.
 - Module 2 dashboard commit `e2c30a845531b2d97203041bcafa4c9f1f5c6500`, authored by Aditya, adds the documented dashboard styling, bounded overview summaries using existing endpoints, clearer payment/refund/webhook/ledger/settlement presentation, loading and empty states, and responsive navigation. It does not change backend payment, refund, ledger, idempotency, webhook, or settlement behavior. Browser visual verification was unavailable; the frontend build passed as recorded in `TESTING_RESULTS.md`.
-- Module 3 changes to README, interview guide, testing results, and this provenance audit are currently uncommitted documentation edits. They are not represented as a pushed implementation contribution.
+- Module 3 documentation commit `f09deb8d29fae62e132426469649ff98e4047e63`, authored by Aditya, updates the README, interview guide, testing results, implementation changelog, and this audit. It records verification and contribution evidence; it adds no application implementation and is not evidence of authorship of inherited functionality.
 
 ### Third-party dependencies and acknowledgements
 
