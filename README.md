@@ -1,6 +1,6 @@
 <div align="center">
 
-<a href="https://differentiatorx.github.io/onyx/"><img alt="PayOps: reliable payment operations. A payment gateway built to stay correct when everything around it fails." src="docs/readme/hero.svg" width="100%"></a>
+<a href="https://github.com/Adityaraj-r/PayOps"><img alt="PayOps: reliable payment operations. A payment gateway built to stay correct when everything around it fails." src="docs/readme/hero.svg" width="100%"></a>
 
 <br><br>
 
@@ -8,7 +8,7 @@
   <a href="https://onyx-omega-fawn.vercel.app/"><img alt="Live demo" src="https://img.shields.io/badge/live%20demo-try%20it-B97A3E?labelColor=1d1f23"></a>
   <a href="https://github.com/Adityaraj-r/PayOps/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/Adityaraj-r/PayOps/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-0D0E10?labelColor=1d1f23">
-  <img alt="Tests" src="https://img.shields.io/badge/unit%20tests-30%20passing-B97A3E?labelColor=1d1f23">
+  <img alt="Tests" src="https://img.shields.io/badge/Jest%20tests-68%20passing-B97A3E?labelColor=1d1f23">
   <img alt="Node" src="https://img.shields.io/badge/node-%E2%89%A520-0D0E10?labelColor=1d1f23">
 </p>
 
@@ -25,7 +25,7 @@
 
 <p>
   <a href="https://onyx-omega-fawn.vercel.app/"><strong>Live demo</strong></a> &nbsp;·&nbsp;
-  <a href="https://differentiatorx.github.io/onyx/"><strong>Website</strong></a> &nbsp;·&nbsp;
+  <a href="https://github.com/Adityaraj-r/PayOps"><strong>GitHub repository</strong></a> &nbsp;·&nbsp;
   <a href="#quick-start">Quick start</a> &nbsp;·&nbsp;
   <a href="#guarantees">Guarantees</a> &nbsp;·&nbsp;
   <a href="#architecture">Architecture</a> &nbsp;·&nbsp;
@@ -35,8 +35,6 @@
 
 <br>
 
-<img alt="15 failure modes handled by design, 30 unit tests on the money paths, 8 webhook retries before a dead letter, 100% of ledger entries balanced" src="docs/readme/stats.svg" width="100%">
-
 </div>
 
 ## Overview
@@ -45,9 +43,9 @@ Most payment projects stop at "the checkout works". PayOps starts there.
 
 PayOps is built around payment operations that remain reliable under retries, provider failures, and delayed webhooks. Every rupee is written into an append-only ledger, and financial changes are committed with the records that explain them.
 
-Merchants create payments through a REST API, customers pay on a hosted checkout, and every rupee is booked in a **double-entry ledger** that proves itself balanced. Merchants are notified through **signed webhooks** that survive crashes and outages. Balances are **settled** to merchants and **reconciled** against the bank's own records.
+Merchants create payments through a REST API, customers pay on a hosted checkout, and every rupee is booked in a **double-entry ledger** that proves itself balanced. Payment changes and webhook events are committed to MongoDB together through a transactional outbox, and workers retry delivery. Queue continuity depends on the Redis service retaining its data.
 
-It ships with a deliberately unreliable **mock bank** that declines payments, goes silent, and sends duplicate and out-of-order webhooks, so every failure mode can be demonstrated live. Switch one environment variable to run against **Razorpay test mode** instead.
+It ships with a deliberately unreliable **mock bank** that declines payments, goes silent, and sends duplicate and out-of-order webhooks, so every failure mode can be demonstrated live. Set `PAYMENT_PROVIDER=razorpay` and provide Razorpay test credentials to use **Razorpay test mode** instead.
 
 <p align="center">
   <img alt="Animated ledger: a capture and a refund, debits equal credits at 6,090.00" src="docs/readme/ledger.svg" width="620">
@@ -71,8 +69,8 @@ Every movement is a balanced journal entry. Balances are recomputed from the jou
 </td>
 <td width="33%" valign="top">
 
-### Nothing gets lost
-State change, ledger entry and webhook event commit in one MongoDB transaction, then a worker delivers with retries.
+### Transactional event records
+State change, ledger entry and webhook event commit in one MongoDB transaction. Workers retry delivery; reliable queue processing also requires Redis to retain queue data.
 
 </td>
 </tr>
@@ -83,7 +81,7 @@ State change, ledger entry and webhook event commit in one MongoDB transaction, 
 
 ## Screenshots
 
-<p align="center"><img alt="PayOps dashboard overview (legacy screenshot; see rebrand checklist)" src="docs/screenshots/overview.png" width="100%"></p>
+<p align="center"><img alt="PayOps dashboard overview" src="docs/screenshots/overview.png" width="100%"></p>
 
 <table>
 <tr>
@@ -128,7 +126,7 @@ The mark keeps the project's original layered-stone artwork. Palette: Ink `#0D0E
 
 ### Watch it hold
 
-Each diagram loops a real failure and the exact way PayOps absorbs it. The [website](https://differentiatorx.github.io/onyx/) has all eight, interactive; update this legacy Pages URL after configuring Pages for PayOps.
+Each diagram loops a real failure and the exact way PayOps absorbs it. Interactive website hosting is not currently verified; the landing-page source is [`docs/index.html`](docs/index.html).
 
 <table>
 <tr>
@@ -247,7 +245,7 @@ After a full cycle the platform bank holds exactly the fees, and assets equal li
 
 ### Try it online
 
-**[onyx-omega-fawn.vercel.app](https://onyx-omega-fawn.vercel.app/)**: current legacy Vercel deployment. Create a test account, make a payment, pick how the mock bank behaves, then refund it and watch the ledger and webhooks update. Rename the Vercel project/domain and replace this URL after deployment.
+**[onyx-omega-fawn.vercel.app](https://onyx-omega-fawn.vercel.app/)**: existing demo deployment on its current Vercel hostname. Its service URL is unchanged by the GitHub repository rename; treat it as a demo and use test data only.
 
 ### Docker
 
@@ -282,7 +280,7 @@ cd ../client && npm install && npm run dev    # dashboard on :5173
 
 ### Deploy a live demo
 
-The included free-tier stack is a demo topology: Render free services can sleep/restart and free Key Value does not persist BullMQ queue state. See the [deployment guide](docs/DEPLOY.md) before using any paid or production resources.
+The included Render free-tier topology is for demos only: free services can sleep/restart and free Key Value does not persist BullMQ queue state. Do not use it for real payment traffic. See the [deployment guide](docs/DEPLOY.md) before configuring paid or production resources.
 
 ### Razorpay test mode
 
@@ -385,10 +383,10 @@ Verify against the raw body and reject timestamps older than five minutes to blo
 ## Testing
 
 ```bash
-cd server && npm test
+cd server && npm test -- --runInBand
 ```
 
-30 unit tests cover the state machine and out-of-order events, ledger balancing across a full capture, refund, settle and payout cycle, integer fee rounding, risk rules, webhook signatures and replay windows, and idempotency fingerprints.
+The current backend suite has 68 passing tests. The payment-lifecycle integration test is skipped unless `PAYOPS_INTEGRATION=1` is set and a disposable MongoDB replica set and Redis instance are available. It must not run against production data. Coverage includes production environment validation, payment and refund safety, ledger invariants, webhook signatures and replay protection, idempotency, reconciliation access control and provider handling. GitHub Actions runs the integration test with its own test services.
 
 **Load test** with [k6](https://k6.io). Fires five concurrent requests per idempotency key and fails if any key ever creates two payments:
 
@@ -429,7 +427,7 @@ PayOps/
 - [ ] MongoDB change streams in place of the polling outbox relay
 - [ ] Prometheus metrics and alerts on dead letters and ledger drift
 - [ ] UPI AutoPay subscriptions
-- [ ] Encrypted webhook secrets at rest
+- [x] Encrypted webhook secrets at rest
 
 ## Acknowledgements
 
@@ -437,7 +435,7 @@ Patterns were studied from two open-source projects and implemented from scratch
 
 ## Website
 
-The current live demo runs at **https://onyx-omega-fawn.vercel.app/** (Vercel dashboard, Render API and workers, MongoDB Atlas); this legacy URL remains until the Vercel project is renamed and redeployed. The landing page lives in [`docs/index.html`](docs/index.html) and the old GitHub Pages URL is **https://differentiatorx.github.io/onyx/**. Configure Pages for the PayOps repository and update the URL after it is available.
+The existing live demo runs at **https://onyx-omega-fawn.vercel.app/**; its hostname and deployment were not changed with the repository rename. GitHub Pages hosting for the renamed repository is not verified. The landing-page source is [`docs/index.html`](docs/index.html); configure and verify Pages before publishing a new website URL.
 
 
 <p align="center"><img src="docs/readme/divider.svg" width="100%" alt=""></p>
