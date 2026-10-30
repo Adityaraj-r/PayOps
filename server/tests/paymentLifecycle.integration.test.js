@@ -19,6 +19,8 @@ if (process.env.CI === 'true' && !enabled) {
   let crypto;
 
   beforeAll(async () => {
+    // Refund retries are tested elsewhere; keep this lifecycle integration deterministic.
+    process.env.MOCKBANK_REFUND_FAILURE_RATE = '0';
     mongoose = require('mongoose');
     env = require('../src/config/env');
     paymentService = require('../src/services/paymentService');
@@ -31,6 +33,8 @@ if (process.env.CI === 'true' && !enabled) {
     crypto = require('../src/lib/crypto');
 
     await require('../src/config/db').connectDb(env.MONGO_URI);
+    // Ensure declared unique indexes are active before concurrency/idempotency assertions.
+    await Promise.all(Object.values(models).map((model) => model.init()));
     merchant = await models.Merchant.create({ name: 'Integration merchant', email: `integration-${Date.now()}@payops.test`, passwordHash: 'not-used' });
     await require('../src/config/db').withTransaction((session) => ledger.ensureAccounts(merchant._id, session));
   }, 30000);
@@ -88,7 +92,7 @@ if (process.env.CI === 'true' && !enabled) {
     const jobId = `${refund._id}-dispatch-${refund.dispatchVersion || 0}`;
     const queuedJob = await refundQueue.getJob(jobId);
     if (queuedJob) await queuedJob.remove();
-    await models.Refund.updateOne({ _id: refund._id }, { $set: { createdAt: new Date(Date.now() - 120000) } }, { timestamps: false });
+    await models.Refund.collection.updateOne({ _id: refund._id }, { $set: { createdAt: new Date(Date.now() - 120000) } });
     await expect(refundService.requeuePending()).resolves.toEqual({ queued: 1 });
     expect(await refundQueue.getJob(jobId)).toBeTruthy();
 
@@ -97,5 +101,60 @@ if (process.env.CI === 'true' && !enabled) {
     expect(finalPayment.amountRefunded).toBe(1000);
     expect(finalPayment.amountRefundPending).toBe(0);
     expect((await ledger.verifyIntegrity(merchant._id)).balanced).toBe(true);
+
+    const concurrentRefunds = await Promise.allSettled([
+      refundService.createRefund(merchant._id, payment._id, { amount: 25000, reason: 'concurrent A' }, crypto.sha256('integration-refund-concurrent-a')),
+      refundService.createRefund(merchant._id, payment._id, { amount: 25000, reason: 'concurrent B' }, crypto.sha256('integration-refund-concurrent-b')),
+    ]);
+    expect(concurrentRefunds.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+    expect(concurrentRefunds.filter((result) => result.status === 'rejected')).toHaveLength(1);
+    const afterConcurrentRefunds = await models.Payment.findById(payment._id).lean();
+    expect(afterConcurrentRefunds.amountRefunded + afterConcurrentRefunds.amountRefundPending).toBeLessThanOrEqual(afterConcurrentRefunds.amount);
+  }, 30000);
+
+  test('checkout capabilities expire on read and pending webhook jobs recover after loss/restart', async () => {
+    const checkoutPayment = await paymentService.createPayment(merchant, {
+      amount: 1200, currency: 'INR', customer: { email: 'checkout-expiry@example.test' },
+    });
+    await models.Payment.updateOne({ _id: checkoutPayment._id }, { $set: { expiresAt: new Date(Date.now() - 1000) } });
+    await expect(paymentService.getCheckout(checkoutPayment._id, checkoutPayment.clientSecret)).rejects.toMatchObject({ code: 'payment_expired' });
+    expect((await models.Payment.findById(checkoutPayment._id).lean()).status).toBe('expired');
+
+    const delivery = await models.WebhookDelivery.create({
+      merchantId: merchant._id, endpointId: 'endpoint-recovery-test', eventId: `event-${Date.now()}`,
+      eventType: 'payment.captured', objectId: checkoutPayment._id, url: 'https://example.test/hook', status: 'pending',
+    });
+    const webhookService = require('../src/services/webhookService');
+    const queue = queues.getQueue('webhooks');
+    await webhookService.requeuePendingDeliveries();
+    expect(await queue.getJob(delivery._id)).toBeTruthy();
+
+    // Model Redis loss or a restart that removed the waiting job; the durable Mongo record is sufficient to restore it.
+    await (await queue.getJob(delivery._id)).remove();
+    await webhookService.requeuePendingDeliveries();
+    expect(await queue.getJob(delivery._id)).toBeTruthy();
+    // A second recovery pass observes the stable active/waiting job and does not duplicate it.
+    await webhookService.requeuePendingDeliveries();
+    expect(await queue.getJob(delivery._id)).toBeTruthy();
+    await (await queue.getJob(delivery._id)).remove();
+    await models.WebhookDelivery.deleteOne({ _id: delivery._id });
+  }, 30000);
+
+  test('a webhook delivery claim prevents concurrent duplicate processing', async () => {
+    const endpoint = await models.WebhookEndpoint.create({
+      merchantId: merchant._id, url: 'https://example.test/hook', secret: 'synthetic-secret', active: false,
+    });
+    const delivery = await models.WebhookDelivery.create({
+      merchantId: merchant._id, endpointId: endpoint._id, eventId: `event-${Date.now()}`,
+      eventType: 'payment.captured', objectId: 'payment-test', url: endpoint.url, status: 'pending',
+    });
+    const webhookService = require('../src/services/webhookService');
+    await Promise.all([
+      webhookService.deliver(delivery._id),
+      webhookService.deliver(delivery._id),
+    ]);
+    expect((await models.WebhookDelivery.findById(delivery._id).lean()).status).toBe('failed');
+    await models.WebhookDelivery.deleteOne({ _id: delivery._id });
+    await models.WebhookEndpoint.deleteOne({ _id: endpoint._id });
   }, 30000);
 });

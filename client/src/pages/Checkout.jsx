@@ -1,6 +1,6 @@
 // PayOps | Author: differentiatorX <madhur.m2006@gmail.com> | https://github.com/differentiatorX | MIT License
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { checkoutApi } from '../api.js';
 import { money } from '../format.js';
 import { PayOpsMark } from '../components/Brand.jsx';
@@ -26,8 +26,13 @@ function loadRazorpayScript() {
 
 export default function Checkout() {
   const { id } = useParams();
-  const [params] = useSearchParams();
-  const secret = params.get('secret') || '';
+  const [secret] = useState(() => {
+    const url = new URL(window.location.href);
+    const fragmentSecret = new URLSearchParams(url.hash.slice(1)).get('secret');
+    const legacySecret = url.searchParams.get('secret');
+    const value = fragmentSecret || legacySecret || '';
+    return value;
+  });
   const [payment, setPayment] = useState(null);
   const [error, setError] = useState(null);
   const [method, setMethod] = useState('card');
@@ -35,6 +40,15 @@ export default function Checkout() {
   const [busy, setBusy] = useState(false);
   const [waitedLong, setWaitedLong] = useState(false);
   const pollStarted = useRef(0);
+
+  // Keep the lazy state initializer pure under React StrictMode; remove capabilities after mount.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has('secret') && !url.hash) return;
+    url.searchParams.delete('secret');
+    url.hash = '';
+    window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}`);
+  }, []);
 
   const refresh = useCallback(async () => {
     try {

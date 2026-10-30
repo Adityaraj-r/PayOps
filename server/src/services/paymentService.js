@@ -131,6 +131,10 @@ async function listForMerchant(merchantId, { status, limit = 20, cursor, q } = {
 async function getCheckout(paymentId, clientSecret) {
   const payment = await Payment.findById(paymentId);
   if (!payment || !clientSecret || !safeEqual(payment.clientSecret, clientSecret)) throw notFound('This payment link is not valid');
+  if (payment.status === 'created' && payment.expiresAt && payment.expiresAt < new Date()) {
+    await expirePayment(payment._id);
+    throw unprocessable('This payment link has expired', 'payment_expired');
+  }
   const merchant = await Merchant.findById(payment.merchantId).lean();
   return { payment, merchant };
 }

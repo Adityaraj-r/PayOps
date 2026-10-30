@@ -34,6 +34,9 @@ const customers = ['aarav@example.com', 'diya@example.com', 'kabir@example.com',
 const items = ['Masala chai x2', 'Monthly tea subscription', 'Gift hamper', 'Assam CTC 500g', 'Office pantry order', 'Darjeeling first flush'];
 
 async function main() {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('The demo seed script is disabled in production');
+  }
   const { apiKey } = await getCredentials();
   const auth = { authorization: `Bearer ${apiKey}` };
   const created = [];

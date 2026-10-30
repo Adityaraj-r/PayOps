@@ -35,8 +35,8 @@ export class ApiError extends Error {
   }
 }
 
-export async function request(path, { method = 'GET', body, auth = true } = {}) {
-  const headers = { 'content-type': 'application/json' };
+export async function request(path, { method = 'GET', body, auth = true, headers: extraHeaders = {} } = {}) {
+  const headers = { 'content-type': 'application/json', ...extraHeaders };
   const token = getToken();
   if (auth && token) headers.authorization = `Bearer ${token}`;
   const res = await fetch(`/api${path}`, { method, headers, body: body ? JSON.stringify(body) : undefined });
@@ -56,6 +56,6 @@ export const api = {
 };
 
 export const checkoutApi = {
-  get: (id, secret) => request(`/checkout/${id}?secret=${encodeURIComponent(secret)}`, { auth: false }),
-  confirm: (id, secret, body) => request(`/checkout/${id}/confirm?secret=${encodeURIComponent(secret)}`, { method: 'POST', body, auth: false }),
+  get: (id, secret) => request(`/checkout/${id}`, { auth: false, headers: { authorization: `Checkout ${secret}` } }),
+  confirm: (id, secret, body) => request(`/checkout/${id}/confirm`, { method: 'POST', body, auth: false, headers: { authorization: `Checkout ${secret}` } }),
 };

@@ -6,7 +6,8 @@ const iso = (d) => (d ? new Date(d).toISOString() : null);
 
 function checkoutUrl(p) {
   if (p.status !== 'created') return null;
-  return `${env.CLIENT_URL}/checkout/${p._id}?secret=${encodeURIComponent(p.clientSecret)}`;
+  // Fragments are not sent to the web server in HTTP requests or Referer headers.
+  return `${env.CLIENT_URL}/checkout/${p._id}#secret=${encodeURIComponent(p.clientSecret)}`;
 }
 
 function payment(p) {

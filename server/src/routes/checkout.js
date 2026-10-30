@@ -10,6 +10,12 @@ const { getProvider } = require('../providers');
 
 const router = express.Router();
 router.use(rateLimit({ capacity: 30, refillPerSec: 1, prefix: 'checkout', keyFn: (req) => req.ip }));
+const checkoutSecret = (req) => {
+  const authorization = req.get('authorization') || '';
+  const match = /^Checkout ([^\s]+)$/.exec(authorization);
+  // Keep query auth for already-deployed API clients; new links use the header.
+  return match?.[1] || req.query.secret;
+};
 
 const view = (payment, merchant) => ({
   id: payment._id,
@@ -25,13 +31,14 @@ const view = (payment, merchant) => ({
 });
 
 router.get('/:id', ah(async (req, res) => {
-  const { payment, merchant } = await payments.getCheckout(req.params.id, req.query.secret);
+  const { payment, merchant } = await payments.getCheckout(req.params.id, checkoutSecret(req));
   res.json(view(payment, merchant));
 }));
 
 router.post('/:id/confirm', validate(schemas.confirmCheckout), ah(async (req, res) => {
-  const payment = await payments.confirmCheckout(req.params.id, req.query.secret, req.validated);
-  const { merchant } = await payments.getCheckout(req.params.id, req.query.secret);
+  const secret = checkoutSecret(req);
+  const payment = await payments.confirmCheckout(req.params.id, secret, req.validated);
+  const { merchant } = await payments.getCheckout(req.params.id, secret);
   res.json(view(payment, merchant));
 }));
 

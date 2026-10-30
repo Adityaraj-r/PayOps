@@ -6,6 +6,7 @@ const pinoHttp = require('pino-http');
 const mongoose = require('mongoose');
 const env = require('./config/env');
 const logger = require('./config/logger');
+const requestLogSerializer = require('./config/requestLogSerializer');
 const { getRedis } = require('./config/redis');
 const { newId } = require('./lib/ids');
 const errorHandler = require('./middleware/errorHandler');
@@ -20,6 +21,8 @@ function createApp() {
   app.use(
     pinoHttp({
       logger,
+      // Keep legacy checkout capability query values out of application logs.
+      serializers: { req: requestLogSerializer },
       genReqId: (req, res) => {
         const id = req.headers['x-request-id'] || newId('req', 12);
         res.setHeader('x-request-id', id);

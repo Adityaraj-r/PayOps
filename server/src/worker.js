@@ -42,7 +42,7 @@ const processors = {
       case 'poll-stuck':
         return payments.pollStuck();
       case 'housekeeping':
-        return { ...(await providerEvents.requeueOrphans()), ...(await refunds.requeuePending()), ...(await refunds.flagStuckRefunds()) };
+        return { ...(await providerEvents.requeueOrphans()), ...(await refunds.requeuePending()), ...(await refunds.flagStuckRefunds()), ...(await webhooks.requeuePendingDeliveries()) };
       default:
         throw new Error(`Unknown payments job ${job.name}`);
     }
@@ -53,6 +53,8 @@ const processors = {
     switch (job.name) {
       case 'outbox-relay':
         return webhooks.relayOutbox();
+      case 'webhook-delivery-recovery':
+        return webhooks.requeuePendingDeliveries();
       case 'settlement-run':
         return settlements.runAll();
       case 'reconciliation-run':
@@ -75,6 +77,7 @@ async function onExhausted(queue, job, err) {
 
 const SCHEDULES = [
   { queue: QUEUES.maintenance, name: 'outbox-relay', every: 1000 },
+  { queue: QUEUES.maintenance, name: 'webhook-delivery-recovery', every: 30000 },
   { queue: QUEUES.maintenance, name: 'settlement-run', every: env.SETTLEMENT_INTERVAL_SECONDS * 1000 },
   { queue: QUEUES.maintenance, name: 'reconciliation-run', every: env.RECONCILIATION_INTERVAL_SECONDS * 1000 },
   { queue: QUEUES.maintenance, name: 'ops-snapshot', every: 60000 },

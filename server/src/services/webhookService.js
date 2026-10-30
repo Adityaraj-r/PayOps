@@ -153,6 +153,37 @@ async function relayOutbox(limit = 100) {
   return { relayed: events.length };
 }
 
+/** Re-enqueue durable deliveries whose BullMQ work disappeared or whose worker lease expired. */
+async function requeuePendingDeliveries(limit = 100) {
+  const now = new Date();
+  const staleLease = new Date(now.getTime() - env.WEBHOOK_TIMEOUT_MS - 30000);
+  const deliveries = await WebhookDelivery.find({
+    $or: [
+      { status: { $in: ['pending', 'retrying'] } },
+      { status: 'processing', leaseUntil: { $lt: now } },
+      { status: 'processing', leaseUntil: null, updatedAt: { $lt: staleLease } },
+    ],
+  }).sort({ createdAt: 1 }).limit(limit).lean();
+  const { getQueue } = require('../queues');
+  const queue = getQueue('webhooks');
+  let queued = 0;
+  for (const delivery of deliveries) {
+    const existing = await queue.getJob(delivery._id);
+    if (existing) {
+      const state = await existing.getState();
+      if (['active', 'waiting', 'delayed', 'paused', 'waiting-children'].includes(state)) continue;
+      await existing.remove();
+    }
+    await enqueue('webhooks', 'deliver', { deliveryId: delivery._id }, {
+      jobId: delivery._id,
+      attempts: env.WEBHOOK_MAX_ATTEMPTS,
+      backoff: { type: 'exponential', delay: 5000 },
+    });
+    queued += 1;
+  }
+  return { queued };
+}
+
 function buildPayload(ev) {
   return JSON.stringify({
     id: ev._id,
@@ -165,11 +196,17 @@ function buildPayload(ev) {
 
 /** One HTTP attempt. Throws on non-2xx so BullMQ schedules the next retry. */
 async function deliver(deliveryId, { attemptNumber = 1 } = {}) {
-  const d = await WebhookDelivery.findById(deliveryId).lean();
-  if (!d || d.status === 'succeeded') return { skipped: true };
+  const now = new Date();
+  const leaseUntil = new Date(now.getTime() + env.WEBHOOK_TIMEOUT_MS + 30000);
+  const d = await WebhookDelivery.findOneAndUpdate(
+    { _id: deliveryId, $or: [{ status: { $in: ['pending', 'retrying'] } }, { status: 'processing', leaseUntil: { $lt: now } }] },
+    { $set: { status: 'processing', leaseUntil } },
+    { new: true },
+  ).lean();
+  if (!d) return { skipped: true };
   const [ep, ev] = await Promise.all([WebhookEndpoint.findById(d.endpointId).lean(), OutboxEvent.findById(d.eventId).lean()]);
   if (!ep || !ep.active || !ev) {
-    await WebhookDelivery.updateOne({ _id: deliveryId }, { $set: { status: 'failed', lastError: 'Endpoint removed or disabled' } });
+    await WebhookDelivery.updateOne({ _id: deliveryId }, { $set: { status: 'failed', lastError: 'Endpoint removed or disabled' }, $unset: { leaseUntil: 1 } });
     return { skipped: true };
   }
 
@@ -201,6 +238,7 @@ async function deliver(deliveryId, { attemptNumber = 1 } = {}) {
       $push: { attempts: { $each: [attempt], $slice: -20 } },
       $inc: { attemptCount: 1 },
       $set: { status: error ? 'retrying' : 'succeeded', lastError: error, lastAttemptAt: attempt.at, ...(error ? {} : { deliveredAt: attempt.at }) },
+      $unset: { leaseUntil: 1 },
     },
   );
   if (error) throw new Error(error);
@@ -208,7 +246,7 @@ async function deliver(deliveryId, { attemptNumber = 1 } = {}) {
 }
 
 async function markDead(deliveryId, error) {
-  await WebhookDelivery.updateOne({ _id: deliveryId, status: { $ne: 'succeeded' } }, { $set: { status: 'dead', lastError: error } });
+  await WebhookDelivery.updateOne({ _id: deliveryId, status: { $ne: 'succeeded' } }, { $set: { status: 'dead', lastError: error }, $unset: { leaseUntil: 1 } });
   logger.warn({ deliveryId, error }, 'Webhook delivery moved to dead letter after final attempt');
 }
 
@@ -219,4 +257,4 @@ async function replay(merchantId, deliveryId) {
   return d;
 }
 
-module.exports = { isPublicAddress, resolvePublicAddresses, assertDeliverableUrl, createEndpoint, rotateEndpointSecret, deleteEndpoint, relayOutbox, deliver, markDead, replay, buildPayload };
+module.exports = { isPublicAddress, resolvePublicAddresses, assertDeliverableUrl, createEndpoint, rotateEndpointSecret, deleteEndpoint, relayOutbox, requeuePendingDeliveries, deliver, markDead, replay, buildPayload };
