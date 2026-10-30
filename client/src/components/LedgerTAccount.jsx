@@ -1,5 +1,6 @@
 // PayOps | Author: differentiatorX <madhur.m2006@gmail.com> | https://github.com/differentiatorX | MIT License
 import { ACCOUNT_NAMES, dateTime, money } from '../format.js';
+import { Link } from 'react-router-dom';
 
 const ENTRY_LABELS = { capture: 'Capture', refund: 'Refund', provider_settlement: 'Provider settlement', payout: 'Payout to merchant' };
 
@@ -32,7 +33,11 @@ export default function LedgerTAccount({ entries }) {
               <tr key={e.id} className="entry-row">
                 <td colSpan={3}>
                   <strong style={{ color: 'var(--ink)', fontWeight: 600 }}>{ENTRY_LABELS[e.type] || e.type}</strong> on {dateTime(e.created_at)}
-                  <span className="code" style={{ float: 'right' }}>{e.id}</span>
+                  <span className="entry-reference">
+                    {e.payment_id && <Link to={`/payments/${e.payment_id}`}>Payment {e.payment_id}</Link>}
+                    {e.ref && <span className="code">Ref: {e.ref}</span>}
+                    <span className="code">{e.id}</span>
+                  </span>
                 </td>
               </tr>,
               ...e.lines.map((l, i) => (

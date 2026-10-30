@@ -10,7 +10,7 @@ import { useAuth } from '../auth.jsx';
 const BUCKETS = [
   ['amount_mismatch', 'Amounts differ'],
   ['status_mismatch', 'Statuses differ'],
-  ['missing_at_provider', 'Captured here, unknown to the bank'],
+  ['missing_at_provider', 'Captured here, missing from provider records'],
 ];
 
 export default function Reconciliation() {
@@ -68,18 +68,20 @@ export default function Reconciliation() {
             latest.issues[key].length ? (
               <section className="panel" key={key}>
                 <h2>{label}</h2>
-                <table>
-                  <thead><tr><th>Payment</th><th>Ours</th><th>Bank</th></tr></thead>
-                  <tbody>
-                    {latest.issues[key].map((i) => (
-                      <tr key={i.paymentId}>
-                        <td><Link to={`/payments/${i.paymentId}`}>{i.paymentId}</Link></td>
-                        <td>{i.ourStatus}, {money(i.ourAmount)}</td>
-                        <td>{i.providerStatus || 'no record'}{i.providerAmount != null ? `, ${money(i.providerAmount)}` : ''}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div className="table-wrap">
+                  <table>
+                    <thead><tr><th>Payment</th><th>PayOps</th><th>Provider</th></tr></thead>
+                    <tbody>
+                      {latest.issues[key].map((i) => (
+                        <tr key={i.paymentId}>
+                          <td><Link to={`/payments/${i.paymentId}`}>{i.paymentId}</Link></td>
+                          <td>{i.ourStatus}, {money(i.ourAmount)}</td>
+                          <td>{i.providerStatus || 'no record'}{i.providerAmount != null ? `, ${money(i.providerAmount)}` : ''}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </section>
             ) : null,
           )}

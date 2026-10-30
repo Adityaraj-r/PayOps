@@ -1,7 +1,7 @@
 # Stage 3 and Stage 4 Testing Results
 
 **Date:** 2026-10-30
-**Stage 3 code base:** commit `d79fd1762830686b3e62518e8662c031784726bd`. The audited Stage 1 hash `a0a268426f5823696603e288bf4f290eedfb333b` is an ancestor. **Stage 4 baseline:** commit `a44c1af67b975cf57ce0aabaefe6bea88c384394`. **Interview-readiness follow-up:** local uncommitted documentation and webhook lease fix. The pre-existing untracked root `package-lock.json` was preserved and not used/modified.
+**Stage 3 code base:** commit `d79fd1762830686b3e62518e8662c031784726bd`. The audited Stage 1 hash `a0a268426f5823696603e288bf4f290eedfb333b` is an ancestor. **Stage 4 baseline:** commit `a44c1af67b975cf57ce0aabaefe6bea88c384394`. **Interview-readiness follow-up:** committed and pushed as `f9d182a68d686f3b23623e3ccf00e63eb177b5dc`. **Module 1 review/UI updates:** committed and pushed as `c8a1981ba4f63f1df4e11cafbbe10d867433a9de`. The pre-existing untracked root `package-lock.json` was preserved and not used/modified.
 
 ## Executed checks
 
@@ -57,7 +57,7 @@
 - Disposable containers `payops-stage4-mongo` and `payops-stage4-redis` were used without project volumes or production data, then removed. Existing `onyx-*` containers were not restarted or changed.
 - No deployment, provider call, external resource mutation, or production database role change was performed during testing. The verified Stage 4 changes were subsequently committed and pushed as `a44c1af`. Temporary test containers and the temporary Jest cache were removed after verification.
 - The first interview-readiness backend run hit `EACCES` when the sandbox blocked a local HTTP test; rerunning with approved loopback access and isolated services passed the full suite.
-- Stage 4 remains committed and pushed as `a44c1af`; interview-readiness changes remain uncommitted by request. Temporary test containers and the temporary Jest cache were removed after final verification.
+- Stage 4 remains committed and pushed as `a44c1af`; interview-readiness changes were later committed and pushed as `f9d182a`. Temporary test containers and the temporary Jest cache were removed after final verification.
 
 ## Skipped, failed, and constrained checks
 
@@ -70,7 +70,7 @@
 
 ## Module 1 functional completion review
 
-**Review base:** `f9d182a68d686f3b23623e3ccf00e63eb177b5dc`. These checks cover the local uncommitted Module 1 UI/documentation updates and the existing backend implementation. No deployment or production resource was used.
+**Review base:** `f9d182a68d686f3b23623e3ccf00e63eb177b5dc`. These checks cover the Module 1 UI/documentation updates committed in `c8a1981` and the existing backend implementation. No deployment or production resource was used.
 
 | Check | Result |
 |---|---|
@@ -88,3 +88,19 @@
 | `git diff --check` | **Passed** after this review's edits. |
 
 The initial sandbox test/audit network failures were rerun with the necessary loopback/registry access. The current frontend edits have build verification but no automated component/browser assertions. The integration suite verifies existing API/business services and HTTP authorization behavior; no real provider, payout, or production API was called.
+
+## Module 2 dashboard UI/UX polish
+
+**Review base:** Module 1 commit `c8a1981ba4f63f1df4e11cafbbe10d867433a9de`. No backend files changed.
+
+| Check | Result |
+|---|---|
+| Frontend production build: `npm run build` (`client`) | **Passed:** Vite built 59 modules after the dashboard changes. |
+| Existing route and navigation map | **Reviewed:** all seven protected sidebar destinations map to existing routes in `client/src/App.jsx`; payment detail routes remain available. |
+| API integration | **Reviewed:** Overview reads existing `/overview`, `/webhooks`, `/ledger`, and `/settlements` resources; existing payment, refund, ledger, webhook, and settlement actions retain their current API client paths. No API or business logic changed. |
+| Responsive layout | **Code-reviewed:** breakpoints at 1120px, 900px, and 560px cover narrower metrics, stacked panels, horizontal navigation/table scrolling, and compact controls. No physical viewport screenshot verification was possible. |
+| Browser console / visual browser E2E | **Not run:** browser use is disabled in Codex Work settings, so the local preview could not be inspected interactively. The local Vite preview was stopped after the availability check. |
+| Backend tests | **Not rerun:** no backend source changed. The latest backend integration result recorded for Module 1 is 19 suites / 78 tests passed. |
+| `git diff --check` | **Passed:** no whitespace errors. Git reports only expected LF-to-CRLF normalization notices for edited documentation. |
+
+No production settings, payment data, provider credentials, or deployment services were accessed.

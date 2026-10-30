@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { api } from '../api.js';
 import { useResource } from '../hooks.js';
 import { dateTime, money } from '../format.js';
-import { Empty, ErrorNote, Loading } from '../components/ui.jsx';
+import { Empty, ErrorNote, Loading, StatusPill } from '../components/ui.jsx';
 
 export default function Settlements() {
   const { data, error, reload, loading } = useResource('/settlements');
@@ -34,7 +34,7 @@ export default function Settlements() {
         </div>
         <button className="btn" onClick={run} disabled={busy}>{busy ? 'Simulating…' : 'Simulate settlement'}</button>
       </div>
-      <div className="notice wait" style={{ marginBottom: 14 }}>This is an accounting simulation, not a payout service. Do not use these entries as evidence that funds moved.</div>
+      <div className="notice wait operational-note">This is an accounting simulation, not a payout service. Do not use these entries as evidence that funds moved. Allocation does not yet trace every swept amount to eligible payments.</div>
       {message && <div className="notice good" style={{ marginBottom: 14 }}>{message}</div>}
       <ErrorNote error={error || runError} />
       <section className="panel" style={{ padding: 0 }}>
@@ -44,12 +44,13 @@ export default function Settlements() {
           <div className="table-wrap">
             <table>
               <thead>
-                <tr><th>Settlement</th><th>Date</th><th className="amount">Payments</th><th className="amount">Gross</th><th className="amount">Fees</th><th className="amount">Refunds</th><th className="amount">Simulated payout</th></tr>
+                <tr><th>Settlement</th><th>Status</th><th>Date</th><th className="amount">Payments</th><th className="amount">Gross</th><th className="amount">Fees</th><th className="amount">Refunds</th><th className="amount">Simulated payout</th></tr>
               </thead>
               <tbody>
                 {data.data.map((s) => (
                   <tr key={s.id}>
                     <td className="code">{s.id}</td>
+                    <td><StatusPill status={s.status} label={s.status === 'paid' ? 'Recorded (simulated)' : s.status} /></td>
                     <td>{dateTime(s.created_at)}</td>
                     <td className="amount" style={{ fontFamily: 'var(--sans)' }}>{s.payment_count}</td>
                     <td className="amount">{money(s.gross)}</td>

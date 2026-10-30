@@ -33,6 +33,7 @@ export default function Webhooks() {
         </div>
         <button className="btn" onClick={() => setAdding(true)}>Add endpoint</button>
       </div>
+      <div className="notice wait operational-note">Webhook delivery is at-least-once. Your handler should be idempotent; failed deliveries retry and may be replayed from this view.</div>
       <ErrorNote error={error || actionError} />
       {loading && !data && <section className="panel"><Loading>Loading webhook endpoints and deliveries…</Loading></section>}
 
@@ -60,7 +61,9 @@ export default function Webhooks() {
                             <div style={{ marginTop: 6 }}><CopyText value={revealed[e.id]} /></div>
                           )}
                         </td>
-                        <td><button className="btn danger small" onClick={() => act(() => api.del(`/webhooks/endpoints/${e.id}`))}>Remove</button></td>
+                        <td><button className="btn danger small" onClick={() => {
+                          if (window.confirm('Remove this webhook endpoint? Future events will no longer be sent to it.')) act(() => api.del(`/webhooks/endpoints/${e.id}`));
+                        }}>Remove</button></td>
                       </tr>
                     ))}
                   </tbody>
@@ -82,22 +85,24 @@ export default function Webhooks() {
             {data.deliveries.length ? (
               <div className="table-wrap">
                 <table>
-                  <thead><tr><th>Event</th><th>Status</th><th>Tries</th><th>Last error</th><th>Created</th><th /></tr></thead>
+                  <thead><tr><th>Delivery</th><th>Event / object</th><th>Status</th><th>Attempts / last attempt</th><th>Last response</th><th /></tr></thead>
                   <tbody>
                     {data.deliveries.map((d) => (
                       <tr key={d.id}>
+                        <td><span className="code table-id" title={d.id}>{d.id}</span></td>
                         <td>
                           {EVENT_LABELS[d.event_type] || d.event_type}
-                          <div className="small">{d.object_id?.startsWith('pay_') ? <Link to={`/payments/${d.object_id}`}>{d.object_id}</Link> : <span className="code muted">{d.object_id}</span>}</div>
+                          <div className="table-subtext">{d.object_id?.startsWith('pay_') ? <Link to={`/payments/${d.object_id}`}>{d.object_id}</Link> : <span className="code">{d.object_id || '—'}</span>}</div>
                         </td>
                         <td><StatusPill status={d.status} /></td>
-                        <td className="num">{d.attempt_count}</td>
-                        <td className="muted small">{d.last_error || '—'}</td>
-                        <td className="muted">{timeAgo(d.created_at)}</td>
+                        <td className="num">{d.attempt_count}<div className="table-subtext">{d.attempts.at(-1)?.at ? timeAgo(d.attempts.at(-1).at) : 'No attempt yet'}</div></td>
+                        <td className="small">{d.attempts.at(-1)?.status_code ? `HTTP ${d.attempts.at(-1).status_code}` : d.attempts.at(-1)?.error || d.last_error || 'No response recorded'}</td>
                         <td>
                           <div className="row">
                             <button className="btn ghost small" onClick={() => setInspecting(d)}>Attempts</button>
-                            {d.status !== 'succeeded' && <button className="btn ghost small" onClick={() => act(() => api.post(`/webhooks/deliveries/${d.id}/replay`))}>Replay</button>}
+                            {['dead', 'failed'].includes(d.status) && <button className="btn ghost small" onClick={() => {
+                              if (window.confirm('Replay this failed delivery? The endpoint may receive the event again, so it must handle duplicate events safely.')) act(() => api.post(`/webhooks/deliveries/${d.id}/replay`));
+                            }}>Replay</button>}
                           </div>
                         </td>
                       </tr>
@@ -115,20 +120,22 @@ export default function Webhooks() {
       {adding && <AddEndpoint onClose={() => setAdding(false)} onAdded={reload} />}
       {inspecting && (
         <Modal title="Delivery attempts" onClose={() => setInspecting(null)}>
-          <p className="muted small" style={{ marginTop: 0 }}>Event <span className="code">{inspecting.event_id}</span> to <span className="code">{inspecting.url}</span></p>
-          <table>
-            <thead><tr><th>Try</th><th>When</th><th>Response</th><th className="amount">Time</th></tr></thead>
-            <tbody>
-              {inspecting.attempts.map((a, i) => (
-                <tr key={i}>
-                  <td className="num">{a.attempt_number}</td>
-                  <td>{dateTime(a.at)}</td>
-                  <td>{a.error ? <span style={{ color: 'var(--debit)' }}>{a.error}</span> : <span style={{ color: 'var(--credit)' }}>HTTP {a.status_code}</span>}</td>
-                  <td className="amount" style={{ fontFamily: 'var(--sans)' }}>{a.duration_ms} ms</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <p className="muted small" style={{ marginTop: 0 }}>Delivery <span className="code">{inspecting.id}</span><br />Event <span className="code">{inspecting.event_id}</span> to <span className="code">{inspecting.url}</span></p>
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Try</th><th>When</th><th>Response</th><th className="amount">Time</th></tr></thead>
+              <tbody>
+                {inspecting.attempts.map((a, i) => (
+                  <tr key={i}>
+                    <td className="num">{a.attempt_number}</td>
+                    <td>{dateTime(a.at)}</td>
+                    <td>{a.error ? <span style={{ color: 'var(--debit)' }}>{a.error}</span> : <span style={{ color: 'var(--credit)' }}>HTTP {a.status_code}</span>}</td>
+                    <td className="amount" style={{ fontFamily: 'var(--sans)' }}>{a.duration_ms} ms</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </Modal>
       )}
     </>

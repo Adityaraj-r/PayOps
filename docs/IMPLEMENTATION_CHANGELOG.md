@@ -50,20 +50,20 @@ No files were intentionally removed. No historical operational or audit records 
 
 No settlement implementation, retention cleanup, database role, production setting, or historical record was changed. No files were removed.
 
-## Interview-readiness stabilization — working tree
+## Interview-readiness stabilization — committed follow-up
 
-This follow-up is not committed or pushed, per the current request. It follows Stage 4 commit `a44c1af` and is limited to documentation accuracy plus one verified webhook recovery defect.
+This follow-up was included in commit `f9d182a68d686f3b23623e3ccf00e63eb177b5dc` and pushed to `main`. It follows Stage 4 commit `a44c1af` and is limited to documentation accuracy plus one verified webhook recovery defect.
 
 | File | Original problem | Implemented solution / reason | Tests / remaining limitations |
 |---|---|---|---|
 | `server/src/services/webhookService.js` | Recovery re-enqueued old `processing` deliveries with a missing `leaseUntil`, but the worker claim accepted only pending/retrying or processing records with an expired non-null lease. The recovered job could not claim that delivery. | Make the claim accept a missing lease only when `updatedAt` is older than the same timeout-plus-grace cutoff used by recovery. Fresh processing records remain protected. | Covered by the new lifecycle integration regression on disposable MongoDB/Redis. |
 | `server/tests/paymentLifecycle.integration.test.js` | No test covered a stale processing record whose lease field was absent. | Add a regression proving recovery enqueues it and the worker can claim it. | Inactive endpoint fixture means no external request is sent. |
 | `README.md`, `docs/INTERVIEW.md` | README had a stale test count and overbroad settlement/demo framing; interview notes contained stale Redis/SSRF/production statements. | Explain the simulation, verified reliability behaviors, known settlement allocation defect, and scope/attribution limits. Preserve the dashboard screenshot and acknowledgements. | Documentation review; screenshot and local links checked in the final review. |
-| `docs/OWNERSHIP_AUDIT.md`, `docs/IMPLEMENTATION_PLAN.md`, `docs/TESTING_RESULTS.md` | Stage 4 was still described as uncommitted after it was pushed; contribution categories were not clearly separated. | Record Stage 3/4 commit evidence and distinguish inherited implementation from those diffs; mark current stabilization work as local and uncommitted. | Commit metadata supports claims about those diffs only, not the inherited baseline. |
+| `docs/OWNERSHIP_AUDIT.md`, `docs/IMPLEMENTATION_PLAN.md`, `docs/TESTING_RESULTS.md` | Stage 4 was still described as uncommitted after it was pushed; contribution categories were not clearly separated. | Record Stage 3/4 and follow-up commit evidence and distinguish inherited implementation from those diffs. | Commit metadata supports claims about those diffs only, not the inherited baseline. |
 
-## Module 1 — functional completion review (working tree)
+## Module 1 — functional completion review (committed)
 
-**Review base:** `f9d182a68d686f3b23623e3ccf00e63eb177b5dc`. This review is uncommitted and unpushed. It preserves the existing root `package-lock.json` and does not touch settlement policy, payment logic, schemas, production settings, or external resources.
+**Review base:** `f9d182a68d686f3b23623e3ccf00e63eb177b5dc`. This review was included in commit `c8a1981ba4f63f1df4e11cafbbe10d867433a9de` and pushed to `main`. It preserves the existing root `package-lock.json` and does not touch settlement policy, payment logic, schemas, production settings, or external resources.
 
 | File | Original problem | Implemented solution / reason | Tests / remaining limitations |
 |---|---|---|---|
@@ -73,3 +73,19 @@ This follow-up is not committed or pushed, per the current request. It follows S
 | `client/src/pages/Reconciliation.jsx` | Success copy implied matching a bank. | Clarify that the result compares provider payment records and ledger balance. | Static review; no bank integration exists. |
 | `client/src/pages/Webhooks.jsx` | Any 2xx response was shown as “OK”, which hid the actual response code. | Display the actual `HTTP <status>` value. | Frontend production build passed. |
 | `docs/MODULE1_AUDIT.md` | No single status list separated working, partial, missing, and intentionally deferred Module 1 areas. | Record feature status, evidence, known limits, and Module 2 handoff items. | Claims are limited to code review and executed checks listed in `TESTING_RESULTS.md`. |
+
+## Module 2 — dashboard UI/UX polish (working tree)
+
+**Review base:** Module 1 commit `c8a1981ba4f63f1df4e11cafbbe10d867433a9de`. These changes are local and uncommitted. No backend, payment, refund, ledger, idempotency, webhook recovery, or settlement business logic was changed. The pre-existing root `package-lock.json` remains untouched.
+
+| File | Original problem | Implemented solution / reason | Tests / remaining limitations |
+|---|---|---|---|
+| `client/src/styles.css` | The dashboard used a light work area and had limited responsive spacing and activity-summary styles. | Apply a dark navy palette, restrained blue primary actions, clearer metrics/cards, table metadata, mobile breakpoints, and reduced-motion behavior. | Production build passed. Actual desktop/tablet/mobile screenshot review was unavailable because browser use is disabled in Work settings. |
+| `client/src/components/Layout.jsx` | Navigation lacked page context and the simulated environment was not persistently identified; mobile hid account controls. | Add a breadcrumb, simulation label, skip link, workspace label, and preserve sign-out/account identification in the compact navigation layout. | Routes and navigation targets were reviewed against `App.jsx`; no browser interaction test was available. |
+| `client/src/components/ui.jsx` | Loading, modal keyboard interaction, and clipboard failure feedback could be clearer. | Add compact accessible skeleton feedback, dialog focus entry/trapping/Escape close/restoration, and a visible manual-copy fallback when clipboard access is blocked. | Frontend build passed. Keyboard and clipboard behavior were code-reviewed but not exercised in a browser. |
+| `client/src/pages/Overview.jsx` | Overview lacked prominent payment counts and recent webhook, ledger, and settlement activity. | Derive total/captured/failed/pending counts from the existing 14-day status response and read existing webhook, ledger, and settlement APIs for summaries. Label windows/limits and simulated activity. | Frontend build passed. Webhook counts describe the latest up to 100 returned records; ledger/settlement summaries use existing latest-record limits. No fabricated metrics or new API were added. |
+| `client/src/pages/Payments.jsx`, `client/src/pages/PaymentDetail.jsx` | Payment identifiers and refund context were not prominent, and refunds lacked a review confirmation. | Show payment/refund IDs, improve search/list loading feedback, retain pagination and filters, explain simulated refunds, and confirm eligible refunds before submission. | Frontend build passed; payment/refund API behavior was not changed. Browser interaction was not available. |
+| `client/src/pages/Ledger.jsx`, `client/src/components/LedgerTAccount.jsx` | Ledger UI did not clearly frame the simulation or show entry references alongside balanced debit/credit lines. | Explain the simulated, read-only ledger and surface journal references and related payment links where present. | Frontend build passed. Entry status is not present in the backend response and was not invented. |
+| `client/src/pages/Webhooks.jsx` | Delivery IDs, last response/attempt, at-least-once behavior, and replay eligibility were not clear. | Show delivery metadata and latest response, explain idempotent handling, and expose replay only for dead/failed records with confirmation. Confirm endpoint removal. | Frontend build passed. Backend replay API remains unchanged; UI narrows the action to failed terminal records. |
+| `client/src/pages/Settlements.jsx` | Settlement status and allocation caveat needed clearer presentation. | Add status and explicitly label simulation and allocation limits. | Frontend build passed; settlement behavior remains unchanged. |
+| `client/src/pages/Reconciliation.jsx` | Issue tables could overflow on small screens and copy referred to a bank although reconciliation compares provider data. | Wrap the table for horizontal scrolling and use PayOps/provider wording. | Frontend build passed; provider reconciliation logic is unchanged. |

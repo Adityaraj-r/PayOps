@@ -4,7 +4,7 @@ import { Link, useParams } from 'react-router-dom';
 import { api } from '../api.js';
 import { useResource } from '../hooks.js';
 import { dateTime, money, statusTone, toPaise, EVENT_LABELS, timeAgo } from '../format.js';
-import { CopyText, ErrorNote, StatusPill } from '../components/ui.jsx';
+import { CopyText, ErrorNote, Loading, Modal, StatusPill } from '../components/ui.jsx';
 import LedgerTAccount from '../components/LedgerTAccount.jsx';
 
 const LIVE = new Set(['created', 'processing', 'authorized']);
@@ -13,12 +13,12 @@ const RISK_COLOR = { allow: 'var(--credit)', review: 'var(--wait)', block: 'var(
 
 const REASON_TEXT = {
   customer_confirmed: 'Customer confirmed at checkout',
-  captured_via_webhook: 'Bank confirmed by webhook',
-  captured_via_status_poll: 'Bank never called back; recovered by polling the bank',
+  captured_via_webhook: 'Provider confirmed by webhook',
+  captured_via_status_poll: 'Provider did not call back; recovered by status polling',
   captured_via_capture_api: 'Captured through the provider API',
-  authorized_via_webhook: 'Bank authorized the payment',
-  failed_via_webhook: 'Bank declined the payment',
-  failed_via_status_poll: 'Bank declined; found by polling',
+  authorized_via_webhook: 'Provider authorized the payment',
+  failed_via_webhook: 'Provider declined the payment',
+  failed_via_status_poll: 'Provider decline found by status polling',
   checkout_window_elapsed: 'Customer did not pay in time',
   flagged_for_review: 'Risk rules flagged this for review',
 };
@@ -26,13 +26,13 @@ const explain = (reason) => (reason ? REASON_TEXT[reason] || reason.replace(/_/g
 
 export default function PaymentDetail() {
   const { id } = useParams();
-  const { data, error, reload } = useResource(`/payments/${id}`, {
+  const { data, error, reload, loading } = useResource(`/payments/${id}`, {
     pollMs: 2000,
     shouldPoll: (d) => !d || LIVE.has(d.payment.status) || d.refunds.some((r) => r.status === 'pending') || d.deliveries.some((x) => ['pending', 'retrying'].includes(x.status)),
   });
 
   if (error) return <ErrorNote error={error} />;
-  if (!data) return <p className="muted">Loading payment…</p>;
+  if (!data) return loading ? <Loading>Loading payment details…</Loading> : null;
   const p = data.payment;
 
   return (
@@ -67,7 +67,7 @@ export default function PaymentDetail() {
 
           <section className="panel">
             <div className="panel-head">
-              <h2>Messages from the bank</h2>
+              <h2>Provider events</h2>
               <span className="muted small">Duplicates and late arrivals are absorbed here</span>
             </div>
             {data.provider_events.length ? (
@@ -162,14 +162,15 @@ function RefundPanel({ payment, refunds, onChange }) {
   const [amount, setAmount] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  const [confirming, setConfirming] = useState(false);
 
-  const submit = async (e) => {
-    e.preventDefault();
+  const submit = async () => {
     setBusy(true);
     setError(null);
     try {
       await api.post(`/payments/${payment.id}/refunds`, amount ? { amount: toPaise(amount), reason: 'Refund from dashboard' } : { reason: 'Refund from dashboard' });
       setAmount('');
+      setConfirming(false);
       onChange();
     } catch (err) {
       setError(err);
@@ -179,33 +180,49 @@ function RefundPanel({ payment, refunds, onChange }) {
   };
 
   if (!canRefund && !refunds.length) return null;
+  const requestedRefund = amount ? toPaise(amount) : refundable;
   return (
     <section className="panel">
       <div className="panel-head">
-        <h2>Refunds</h2>
+        <h2>Refund activity</h2>
         {canRefund && <span className="muted small num">{money(refundable)} can be refunded</span>}
       </div>
+      <p className="muted small">Original payment <Link className="code" to={`/payments/${payment.id}`}>{payment.id}</Link></p>
+      <p className="muted small">Refunds are simulated in PayOps; no payment provider or card is contacted.</p>
       {canRefund && (
-        <form className="row" onSubmit={submit} style={{ marginBottom: refunds.length ? 14 : 0 }}>
-          <input className="input num" style={{ width: 160 }} inputMode="decimal" placeholder={`Full: ${(refundable / 100).toFixed(2)}`} value={amount} onChange={(e) => setAmount(e.target.value)} aria-label="Refund amount in rupees" />
-          <button className="btn" disabled={busy}>{busy ? 'Refunding…' : amount ? 'Refund this amount' : 'Refund in full'}</button>
+        <form className="row" onSubmit={(e) => { e.preventDefault(); setConfirming(true); }} style={{ marginBottom: refunds.length ? 14 : 0 }}>
+          <input className="input num" style={{ width: 160 }} type="number" min="0.01" max={(refundable / 100).toFixed(2)} step="0.01" inputMode="decimal" placeholder={`Full: ${(refundable / 100).toFixed(2)}`} value={amount} onChange={(e) => setAmount(e.target.value)} aria-label="Refund amount in rupees" />
+          <button className="btn" disabled={busy}>{amount ? 'Review refund' : 'Review full refund'}</button>
         </form>
       )}
       <ErrorNote error={error} />
       {refunds.length > 0 && (
-        <table>
-          <thead><tr><th className="amount">Amount</th><th>Status</th><th>Tries</th><th>Created</th></tr></thead>
-          <tbody>
-            {refunds.map((r) => (
-              <tr key={r.id}>
-                <td className="amount">{money(r.amount)}</td>
-                <td><StatusPill status={r.status} label={REFUND_LABELS[r.status]} />{r.failure_reason && <div className="muted small">{r.failure_reason}</div>}</td>
-                <td className="num">{r.attempts}</td>
-                <td className="muted">{timeAgo(r.created_at)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th>Refund</th><th className="amount">Amount</th><th>Status</th><th>Tries</th><th>Created</th></tr></thead>
+            <tbody>
+              {refunds.map((r) => (
+                <tr key={r.id}>
+                  <td className="code table-id" title={r.id}>{r.id}</td>
+                  <td className="amount">{money(r.amount)}</td>
+                  <td><StatusPill status={r.status} label={REFUND_LABELS[r.status]} />{r.failure_reason && <div className="muted small">{r.failure_reason}</div>}</td>
+                  <td className="num">{r.attempts}</td>
+                  <td className="muted">{timeAgo(r.created_at)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {confirming && (
+        <Modal title="Confirm simulated refund" onClose={() => !busy && setConfirming(false)}>
+          <p>This will request a {amount ? 'partial' : 'full'} simulated refund of <strong className="num">{money(requestedRefund)}</strong> for payment <span className="code">{payment.id}</span>.</p>
+          <p className="muted small">This action updates the demo payment and ledger. It does not send funds.</p>
+          <div className="row">
+            <button className="btn" onClick={submit} disabled={busy}>{busy ? 'Submitting…' : 'Confirm simulated refund'}</button>
+            <button className="btn ghost" onClick={() => setConfirming(false)} disabled={busy}>Cancel</button>
+          </div>
+        </Modal>
       )}
     </section>
   );

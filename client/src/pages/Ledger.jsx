@@ -13,12 +13,13 @@ export default function Ledger() {
         <div>
           <h1>Ledger</h1>
           <p className="lede">
-            Every rupee is booked twice: once where it comes from, once where it goes. Balances are stored, and also recomputed from the journal below to prove they agree.
+            Simulated double-entry ledger. Each journal entry books equal debits and credits; the integrity check recomputes balances from the journal.
           </p>
         </div>
         <button className="btn ghost" onClick={reload} disabled={loading}>Check integrity again</button>
       </div>
       <ErrorNote error={error} />
+      <div className="notice wait ledger-disclosure">Demo accounting only. Posted entries are read-only in this interface; corrections use separate ledger entries.</div>
       {loading && !data && <section className="panel"><Loading>Loading ledger and integrity check…</Loading></section>}
       {data && (
         <div className="grid-2">
@@ -57,7 +58,7 @@ export default function Ledger() {
           <section className="panel">
             <div className="panel-head">
               <h2>Journal</h2>
-              <span className="muted small">Latest 50 entries, oldest first</span>
+              <span className="muted small">Latest 50 entries</span>
             </div>
             <LedgerTAccount entries={[...data.journal].reverse()} />
           </section>

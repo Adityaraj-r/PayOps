@@ -1,9 +1,9 @@
 // PayOps | Author: differentiatorX <madhur.m2006@gmail.com> | https://github.com/differentiatorX | MIT License
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 import { money, timeAgo } from '../format.js';
-import { Empty, ErrorNote, StatusPill } from '../components/ui.jsx';
+import { Empty, ErrorNote, Loading, StatusPill } from '../components/ui.jsx';
 import CreatePaymentModal from '../components/CreatePaymentModal.jsx';
 
 const FILTERS = [
@@ -17,7 +17,6 @@ const FILTERS = [
 ];
 
 export default function Payments() {
-  const nav = useNavigate();
   const [status, setStatus] = useState('');
   const [query, setQuery] = useState('');
   const [submittedQuery, setSubmittedQuery] = useState('');
@@ -62,29 +61,31 @@ export default function Payments() {
         <button className="btn" onClick={() => setCreating(true)}>Create test payment</button>
       </div>
 
-      <div className="row" style={{ marginBottom: 14, justifyContent: 'space-between' }}>
+      <div className="payment-tools">
         <div className="segments" role="group" aria-label="Filter by status">
           {FILTERS.map(([value, label]) => (
             <button key={value || 'all'} aria-pressed={status === value} onClick={() => setStatus(value)}>{label}</button>
           ))}
         </div>
-        <form className="row" onSubmit={(e) => { e.preventDefault(); setSubmittedQuery(query.trim()); }}>
-          <input className="input" style={{ width: 260 }} placeholder="pay_… or customer@email.com" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Search payments" />
-          <button className="btn ghost">Search</button>
+        <form className="payment-search" onSubmit={(e) => { e.preventDefault(); setSubmittedQuery(query.trim()); }}>
+          <label className="visually-hidden" htmlFor="payment-search">Search payments</label>
+          <input id="payment-search" className="input" placeholder="Payment ID or customer email" value={query} onChange={(e) => setQuery(e.target.value)} />
+          <button className="btn ghost" type="submit">Search</button>
         </form>
       </div>
 
       <ErrorNote error={error} />
       <section className="panel" style={{ padding: 0 }}>
-        {rows.length ? (
+        {loading && !rows.length ? <Loading>Loading payments…</Loading> : rows.length ? (
           <div className="table-wrap">
             <table>
               <thead>
-                <tr><th className="amount">Amount</th><th>Status</th><th>Customer</th><th>Risk</th><th>Description</th><th>Created</th></tr>
+                <tr><th>Payment</th><th className="amount">Amount</th><th>Status</th><th>Customer</th><th>Risk</th><th>Description</th><th>Created</th></tr>
               </thead>
               <tbody>
                 {rows.map((p) => (
-                  <tr key={p.id} className="clickable" onClick={() => nav(`/payments/${p.id}`)}>
+                  <tr key={p.id}>
+                    <td><Link className="code table-id" to={`/payments/${p.id}`} title={p.id}>{p.id}</Link></td>
                     <td className="amount">{money(p.amount)}</td>
                     <td><StatusPill status={p.status} /></td>
                     <td>{p.customer?.email}</td>
@@ -101,7 +102,7 @@ export default function Payments() {
         )}
       </section>
       {cursor && (
-        <div style={{ marginTop: 14 }}>
+        <div className="load-more">
           <button className="btn ghost" disabled={loading} onClick={() => load(cursor)}>{loading ? 'Loading…' : 'Load more'}</button>
         </div>
       )}

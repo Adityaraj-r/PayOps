@@ -1,11 +1,11 @@
 # PayOps Contribution and Provenance Audit
 
-**Inspection date:** 2026-10-30 (updated after Stage 4 commit)
+**Inspection date:** 2026-10-30 (updated after Module 1 commit)
 **Evidence used:** local Git refs and commit metadata, README acknowledgements, and current repository files. This is a repository-provenance assessment, not a legal opinion or proof of independent authorship.
 
 ## Git evidence
 
-The current `main` branch is a rewritten history beginning with aggregate snapshot `9d48e86` (`Establish PayOps project history`), followed by `7d52c31`, `a0a2684`, Stage 3 commit `d79fd17`, and Stage 4 commit `a44c1af`. The recent implementation commits use `Aditya <aadiraj267@gmail.com>` as author. At this update, `main` and `origin/main` point to `a44c1af67b975cf57ce0aabaefe6bea88c384394`. The current interview-readiness worktree contains uncommitted README/interview/audit-doc updates and a webhook stale-lease fix; no commit attribution is claimed for those local edits.
+The current `main` branch is a rewritten history beginning with aggregate snapshot `9d48e86` (`Establish PayOps project history`), followed by `7d52c31`, `a0a2684`, Stage 3 commit `d79fd17`, Stage 4 commit `a44c1af`, interview-readiness commit `f9d182a`, and Module 1 review commit `c8a1981`. The recent implementation commits use `Aditya <aadiraj267@gmail.com>` as author. At this update, `main` and `origin/main` point to `c8a1981ba4f63f1df4e11cafbbe10d867433a9de`. The current Module 2 UI polish changes are uncommitted and are not included in contribution claims here.
 
 The local recovery ref `backup/pre-rewrite/main-20261030` retains the earlier history, including commits attributed to Madhur / `differentiatorX`. The rewrite changes reachable history attribution; it does not establish that every pre-existing implementation was independently authored by the rewritten author. The snapshot in `9d48e86` is an aggregate snapshot and cannot replace file-level provenance evidence.
 
@@ -26,6 +26,8 @@ The baseline snapshot contains the payment API, payment/refund workflows, ledger
 - The pre-rewrite history retained at local ref `backup/pre-rewrite/main-20261030` contains Aditya-attributed commits `92fb394` (payment/deployment security), `4e4fec6` (PayOps rebrand), and `c6a87fd` (payment operations hardening). Their commit diffs support those specific changes; they do not establish authorship of the entire codebase.
 - Stage 3 commit `d79fd1762830686b3e62518e8662c031784726bd`, authored by Aditya, adds checkout capability URL/header handling, request log redaction, webhook delivery recovery and Mongo leases, `/v1/` Docker routing, production seed safeguards, regression tests, and audit documentation. The exact file-level record is in `IMPLEMENTATION_CHANGELOG.md`.
 - Stage 4 commit `a44c1af67b975cf57ce0aabaefe6bea88c384394`, authored by Aditya, adds Mongoose-level JournalEntry mutation/deletion guards and tests, migrates the seed consumer to checkout Authorization headers, tightens browser capability cleanup/referrer policy, and adds settlement/retention/ledger design documentation. This does not add the settlement allocation implementation or database-level MongoDB role enforcement.
+- Interview-readiness commit `f9d182a68d686f3b23623e3ccf00e63eb177b5dc`, authored by Aditya, adds the webhook recovery case for stale processing deliveries without a lease and updates interview/README/audit documentation. The file-level record is in `IMPLEMENTATION_CHANGELOG.md`.
+- Module 1 review commit `c8a1981ba4f63f1df4e11cafbbe10d867433a9de`, authored by Aditya, adds accessible first-load feedback, more accurate simulated dashboard labels, and the Module 1 feature audit/testing record. It does not change payment, refund, ledger, webhook, or settlement business logic.
 
 ### Third-party dependencies and acknowledgements
 
