@@ -16,7 +16,7 @@ Interviewers will pick one feature and keep asking "why" until you hit the botto
 
 ## The 30-second pitch
 
-"PayOps is a Razorpay-style payment gateway on MERN. The interesting part isn't the checkout, it's correctness under failure: idempotent APIs so retries never double-charge, a double-entry ledger where every rupee is booked twice and verified, a transactional outbox so webhooks can't be lost, and a deliberately unreliable mock bank that sends duplicate and out-of-order webhooks so I could prove the system handles them."
+"PayOps is an educational payment-operations simulation, not a real-money processor. Its default mock bank deliberately creates retries, failures, duplicate and out-of-order events. The project is a way to examine idempotent APIs, payment state transitions, a balanced double-entry ledger, and durable webhook work. Settlements are ledger simulations, not bank transfers."
 
 ## Idempotency
 
@@ -38,6 +38,8 @@ The record stays `in_progress` with a `lockedAt`. After 60 seconds a retry can t
 **Q: Why both Redis and MongoDB?**
 Redis is the fast path for replays. MongoDB is the source of truth with a TTL index. If Redis is down, it falls back to Mongo.
 
+The persisted idempotency record is MongoDB's source of truth; the Redis entry is a response cache. Production rate limiting fails closed if Redis is unavailable, while non-production mode can fail open.
+
 ## Ledger
 
 **Q: Why double-entry instead of a balance field?**
@@ -53,7 +55,7 @@ Each entry has a unique `idempotencyKey` like `capture:pay_x`. Posting checks fo
 `0.1 + 0.2 !== 0.3`. All money is integer paise. Fees round half up with integer math in `lib/money.js`.
 
 **Q: Why are journal entries never updated?**
-Append-only is an audit trail. Mistakes are corrected with a new reversing entry.
+They are audit facts, so corrections should be new balanced reversal or adjustment entries. Mongoose blocks ordinary application update/delete paths and the tests exercise those paths. Native MongoDB access can bypass middleware; a restricted database role has not been configured, so do not claim database-enforced immutability.
 
 ## Transactions and consistency
 
@@ -88,11 +90,14 @@ The HMAC is over exact bytes. Parsing and re-serializing JSON can change key ord
 **Q: Merchant's server is down for an hour.**
 BullMQ retries with exponential backoff, 8 attempts. Then the delivery moves to `dead` and the merchant can replay it from the dashboard.
 
+**Q: What if a queued webhook job disappears after the outbox is published?**
+MongoDB delivery records remain the durable status. A periodic bounded scan checks pending/retrying deliveries and expired processing leases, checks for an active BullMQ job, then re-enqueues missing work with the stable delivery ID. A MongoDB lease prevents concurrent workers from claiming the same attempt. Delivery remains at least once if a receiver accepted a request just before the worker crashed.
+
 **Q: How does a merchant know the webhook came from you?**
 `PayOps-Signature: t=<timestamp>,v1=<hmac>`. The timestamp is inside the HMAC and checked against a 5-minute window, which blocks replay attacks. The server also sends the old `Onyx-Signature` header for existing integrations.
 
 **Q: SSRF?**
-With `ENABLE_DEV_ROUTES=false`, endpoint URLs must be https and cannot point at private IP ranges like 127.0.0.1 or 10.x. Dev mode allows them so the built-in test sink works. A stricter version would also resolve DNS and check the resolved IP.
+In production, webhook destinations must use HTTPS. Addresses are checked at registration and resolved again by the socket lookup at connection time; private and reserved IP ranges are rejected. Development routes allow local test destinations. This is defense in depth, not a guarantee against every infrastructure or DNS edge case.
 
 ## Refunds
 
@@ -104,19 +109,19 @@ The job retries with exponential backoff. If every retry fails, the reservation 
 
 ## Scale and operations
 
-Settlement and payout entries are simulated accounting records only. There is no external bank or payout-provider integration, and a `paid` record does not prove that funds moved.
+Settlement and payout entries are simulated accounting records only. There is no external bank or payout-provider transfer, and a `paid` record does not prove that funds moved. The current settlement simulator sweeps ledger balances when a mature payment qualifies, but its record links only eligible mature payments. The allocation mismatch is a known limitation; the settlement redesign is not implemented.
 
 **Q: How would this scale?**
 The API is stateless, so run more instances behind a load balancer. Rate limiting and idempotency live in Redis and Mongo, so they work across instances. Workers scale horizontally; BullMQ ensures one worker per job. Next steps: shard payments by merchant, move the relay to MongoDB change streams, and partition queues by merchant to stop one noisy merchant starving others.
 
 **Q: How does the rate limiter work across many API servers?**
-Token bucket in a Redis Lua script, which runs atomically. It uses Redis server time, so clocks on API servers don't matter. If Redis is down it fails open so payments keep working.
+Token bucket in a Redis Lua script, which runs atomically and uses Redis server time. In production, Redis unavailability fails the rate-limited request closed; only non-production mode can fail open.
 
-**Q: What would you change for real production?**
-Per-payment T+2 settlement instead of a sweep, a platform-wide general ledger, encryption of webhook secrets at rest, refresh tokens for the dashboard, structured metrics and alerts on dead letters and ledger drift, and PCI scope review (card data never touches PayOps; the provider's checkout handles it).
+**Q: What are the next engineering limits within this demo scope?**
+The settlement allocation mismatch needs an explicit business policy before a code change. The application also needs a database role that denies direct journal update/delete, approved retention periods, and deployment Redis persistence if the demo is expected to survive restarts. These are documented follow-ups, not completed capabilities. The project is intentionally not being expanded into a real-money service.
 
 ## Honest answers you should have ready
 
 - "Which parts did you write?" Be truthful. If you studied the two credited repos for patterns, say so and explain what you changed and why.
-- "What was hardest?" A good honest answer: getting retries, duplicates and reordering to all be safe at the same time, and proving the ledger stays balanced through refunds after settlement.
+- "What was hardest?" Discuss idempotency, duplicated/reordered events, concurrent refund reservations, and the trade-off between a balanced simulated ledger and the still-unresolved settlement allocation attribution.
 - "What would break first under load?" The outbox relay polls MongoDB every second with concurrency 1. Change streams or partitioned relays fix it.

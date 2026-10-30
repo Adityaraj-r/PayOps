@@ -1,7 +1,7 @@
 # Stage 3 and Stage 4 Testing Results
 
 **Date:** 2026-10-30
-**Stage 3 code base:** commit `d79fd1762830686b3e62518e8662c031784726bd` (current `main` and `origin/main` at Stage 4 start). The audited Stage 1 hash `a0a268426f5823696603e288bf4f290eedfb333b` is an ancestor. **Stage 4:** local uncommitted changes in this worktree; the pre-existing untracked root `package-lock.json` was preserved and not used/modified.
+**Stage 3 code base:** commit `d79fd1762830686b3e62518e8662c031784726bd`. The audited Stage 1 hash `a0a268426f5823696603e288bf4f290eedfb333b` is an ancestor. **Stage 4 baseline:** commit `a44c1af67b975cf57ce0aabaefe6bea88c384394`. **Interview-readiness follow-up:** local uncommitted documentation and webhook lease fix. The pre-existing untracked root `package-lock.json` was preserved and not used/modified.
 
 ## Executed checks
 
@@ -39,13 +39,25 @@
 | Retention/archival tests | **Not run:** no cleanup was implemented pending approved periods and jurisdiction. |
 | `git diff --check` | **Passed:** no whitespace errors. Git emitted line-ending normalization warnings for edited text files. |
 
+## Interview-readiness final verification
+
+| Check | Result |
+|---|---|
+| Full backend suite including integration: isolated MongoDB replica set + Redis, `PAYOPS_INTEGRATION=1 npm test -- --no-cache --runInBand --forceExit` | **Passed:** 19 suites, 78 tests. Includes the added case where recovery and worker claim handle an old `processing` delivery with no lease. |
+| Frontend build: `npm run build` (`client`) | **Passed:** Vite production build completed. |
+| Docker Compose validation: `docker compose config --quiet` | **Passed.** |
+| Dependency security | **Client:** 0 vulnerabilities. **Server production dependencies:** 0 vulnerabilities in prior Stage 4 audit. **Full server tree:** 6 low-severity Jest transitive findings remain; no breaking forced downgrade applied. |
+| `git diff --check` | **Passed** on the final worktree diff. |
+
 ### Stage 4 test attempts and constraints
 
 - One focused Jest invocation failed before assertions because the sandbox blocked cache writes to the Windows temp directory. Re-running with `--cacheDirectory .jest-cache-stage4` passed.
 - The first integration attempt exposed an invalid synthetic ledger account fixture; it was corrected to real chart-of-account names, and the lifecycle suite passed 4/4 tests.
 - A subsequent full-suite attempt reused Redis test-queue state left by that failed run and returned `queued: 3` where the test expected `queued: 1`. The isolated Redis test DB was flushed and a fresh Mongo database used; the final full run passed 19/77. This was test-environment residue, not a product regression.
 - Disposable containers `payops-stage4-mongo` and `payops-stage4-redis` were used without project volumes or production data, then removed. Existing `onyx-*` containers were not restarted or changed.
-- No deployment, provider call, external resource mutation, commit, push, or production database role change was performed. Temporary test containers and the temporary Jest cache were removed after verification.
+- No deployment, provider call, external resource mutation, or production database role change was performed during testing. The verified Stage 4 changes were subsequently committed and pushed as `a44c1af`. Temporary test containers and the temporary Jest cache were removed after verification.
+- The first interview-readiness backend run hit `EACCES` when the sandbox blocked a local HTTP test; rerunning with approved loopback access and isolated services passed the full suite.
+- Stage 4 remains committed and pushed as `a44c1af`; interview-readiness changes remain uncommitted by request. Temporary test containers and the temporary Jest cache were removed after final verification.
 
 ## Skipped, failed, and constrained checks
 

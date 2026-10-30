@@ -185,4 +185,31 @@ if (process.env.CI === 'true' && !enabled) {
     expect(stored.ref).toBe(entry.ref);
     expect(stored.lines.reduce((sum, line) => sum + (line.direction === 'debit' ? line.amount : -line.amount), 0)).toBe(0);
   }, 30000);
+
+  test('worker reclaims a stale processing delivery when its lease field is missing', async () => {
+    const endpoint = await models.WebhookEndpoint.create({
+      merchantId: merchant._id, url: 'https://example.test/hook', secret: 'synthetic-secret', active: false,
+    });
+    const delivery = await models.WebhookDelivery.create({
+      merchantId: merchant._id, endpointId: endpoint._id, eventId: `event-missing-lease-${Date.now()}`,
+      eventType: 'payment.captured', objectId: 'payment-test', url: endpoint.url, status: 'processing',
+    });
+    await models.WebhookDelivery.collection.updateOne(
+      { _id: delivery._id },
+      { $unset: { leaseUntil: 1 }, $set: { updatedAt: new Date(Date.now() - 120000) } },
+    );
+
+    const webhookService = require('../src/services/webhookService');
+    const queue = queues.getQueue('webhooks');
+    const recovered = await webhookService.requeuePendingDeliveries();
+    expect(recovered.queued).toBeGreaterThanOrEqual(1);
+    const job = await queue.getJob(delivery._id);
+    expect(job).toBeTruthy();
+
+    await webhookService.deliver(delivery._id);
+    expect((await models.WebhookDelivery.findById(delivery._id).lean()).status).toBe('failed');
+    await job.remove();
+    await models.WebhookDelivery.deleteOne({ _id: delivery._id });
+    await models.WebhookEndpoint.deleteOne({ _id: endpoint._id });
+  }, 30000);
 });

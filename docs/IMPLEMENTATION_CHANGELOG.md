@@ -32,7 +32,7 @@ No files were intentionally removed. No historical operational or audit records 
 
 ## Stage 4 — local review changes
 
-**Review base:** Stage 3 commit `d79fd1762830686b3e62518e8662c031784726bd` on `main` (already present on `origin/main`). The audited Stage 1 hash `a0a2684` is an ancestor, not the current checkout. The pre-existing untracked root `package-lock.json` was left untouched. Stage 4 changes are uncommitted; no commit, push, deployment, or production-data operation was performed.
+**Review base:** Stage 3 commit `d79fd1762830686b3e62518e8662c031784726bd` on `main`. Stage 4 was committed and pushed as `a44c1af67b975cf57ce0aabaefe6bea88c384394`. The audited Stage 1 hash `a0a2684` is an ancestor, not the current checkout. The pre-existing untracked root `package-lock.json` was left untouched. No deployment or production-data operation was performed.
 
 | File | Original problem | Implemented solution / decision | Tests / remaining limitations |
 |---|---|---|---|
@@ -49,3 +49,14 @@ No files were intentionally removed. No historical operational or audit records 
 | `docs/TESTING_RESULTS.md` | Results referenced the original audit hash plus uncommitted Stage 3 even though Stage 3 was committed/pushed. | Update to distinguish Stage 3 parent from local Stage 4 tests/checks. | Command outcomes and any environment constraints are recorded in that report. |
 
 No settlement implementation, retention cleanup, database role, production setting, or historical record was changed. No files were removed.
+
+## Interview-readiness stabilization — working tree
+
+This follow-up is not committed or pushed, per the current request. It follows Stage 4 commit `a44c1af` and is limited to documentation accuracy plus one verified webhook recovery defect.
+
+| File | Original problem | Implemented solution / reason | Tests / remaining limitations |
+|---|---|---|---|
+| `server/src/services/webhookService.js` | Recovery re-enqueued old `processing` deliveries with a missing `leaseUntil`, but the worker claim accepted only pending/retrying or processing records with an expired non-null lease. The recovered job could not claim that delivery. | Make the claim accept a missing lease only when `updatedAt` is older than the same timeout-plus-grace cutoff used by recovery. Fresh processing records remain protected. | Covered by the new lifecycle integration regression on disposable MongoDB/Redis. |
+| `server/tests/paymentLifecycle.integration.test.js` | No test covered a stale processing record whose lease field was absent. | Add a regression proving recovery enqueues it and the worker can claim it. | Inactive endpoint fixture means no external request is sent. |
+| `README.md`, `docs/INTERVIEW.md` | README had a stale test count and overbroad settlement/demo framing; interview notes contained stale Redis/SSRF/production statements. | Explain the simulation, verified reliability behaviors, known settlement allocation defect, and scope/attribution limits. Preserve the dashboard screenshot and acknowledgements. | Documentation review; screenshot and local links checked in the final review. |
+| `docs/OWNERSHIP_AUDIT.md`, `docs/IMPLEMENTATION_PLAN.md`, `docs/TESTING_RESULTS.md` | Stage 4 was still described as uncommitted after it was pushed; contribution categories were not clearly separated. | Record Stage 3/4 commit evidence and distinguish inherited implementation from those diffs; mark current stabilization work as local and uncommitted. | Commit metadata supports claims about those diffs only, not the inherited baseline. |

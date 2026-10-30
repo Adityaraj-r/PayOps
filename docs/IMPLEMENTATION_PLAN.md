@@ -1,6 +1,6 @@
 # PayOps Audit Remediation Plan
 
-Stage 1 inspection is complete. Stage 3 was committed at `d79fd1762830686b3e62518e8662c031784726bd` before this Stage 4 review. Stage 4 changes are local and uncommitted. See `IMPLEMENTATION_CHANGELOG.md`; unresolved settlement/retention policy work remains gated below.
+Stage 1 inspection is complete. Stage 3 was committed at `d79fd1762830686b3e62518e8662c031784726bd`; Stage 4 was committed and pushed at `a44c1af67b975cf57ce0aabaefe6bea88c384394`. The interview-readiness review has a small local webhook lease correction and documentation update; those changes remain uncommitted by request. See `IMPLEMENTATION_CHANGELOG.md`; unresolved settlement/retention policy work remains gated below.
 
 ## Batch 1 — secret exposure and durable delivery recovery
 

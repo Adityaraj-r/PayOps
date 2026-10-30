@@ -198,8 +198,16 @@ function buildPayload(ev) {
 async function deliver(deliveryId, { attemptNumber = 1 } = {}) {
   const now = new Date();
   const leaseUntil = new Date(now.getTime() + env.WEBHOOK_TIMEOUT_MS + 30000);
+  const staleLease = new Date(now.getTime() - env.WEBHOOK_TIMEOUT_MS - 30000);
   const d = await WebhookDelivery.findOneAndUpdate(
-    { _id: deliveryId, $or: [{ status: { $in: ['pending', 'retrying'] } }, { status: 'processing', leaseUntil: { $lt: now } }] },
+    {
+      _id: deliveryId,
+      $or: [
+        { status: { $in: ['pending', 'retrying'] } },
+        { status: 'processing', leaseUntil: { $lt: now } },
+        { status: 'processing', leaseUntil: null, updatedAt: { $lt: staleLease } },
+      ],
+    },
     { $set: { status: 'processing', leaseUntil } },
     { new: true },
   ).lean();
